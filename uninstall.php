@@ -8,6 +8,7 @@
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 require_once __DIR__ . '/includes/class-installer.php';
+require_once __DIR__ . '/includes/class-settings-page.php';
 
 if ( get_option( \GezonderInWerk\Booking\Installer::OPTION_REMOVE_ON_UNINSTALL ) ) {
 	\GezonderInWerk\Booking\Installer::uninstall();
