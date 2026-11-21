@@ -70,20 +70,27 @@ class EnrolmentExportTest extends WP_UnitTestCase {
 		return array( $header, $rows );
 	}
 
-	private function request( array $get, ?string $nonce_action = 'gzw_export_enrolments' ): void {
+	/** Run the handler's authorisation + build step with the given query and nonce. */
+	private function request( array $get, ?string $nonce_action = 'gzw_export_enrolments' ): array {
 		$_GET = $get;
 		if ( $nonce_action ) {
 			$_REQUEST['_wpnonce'] = wp_create_nonce( $nonce_action );
 		}
-		add_filter( 'wp_die_handler', static fn() => static function ( $message ) {
-			throw new RuntimeException( is_string( $message ) ? $message : 'die' );
-		} );
+		$die = static fn() => static function ( $message, $title, $args ) {
+			throw new RuntimeException( (string) ( is_array( $args ) ? $args['response'] ?? 0 : $args ) );
+		};
+		add_filter( 'wp_die_handler', $die );
 		try {
-			Enrolments_Export::handle_export();
+			return Enrolments_Export::authorised_response();
 		} finally {
+			remove_filter( 'wp_die_handler', $die );
 			$_GET = array();
 			unset( $_REQUEST['_wpnonce'] );
 		}
+	}
+
+	private function as_admin(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
 	}
 
 	public function test_export_has_bom_semicolon_dutch_headers_and_round_trips_accents(): void {
@@ -151,6 +158,17 @@ class EnrolmentExportTest extends WP_UnitTestCase {
 		$this->assertContains( "'=1+1", $employers );
 	}
 
+	public function test_neutralisation_applies_to_every_column_and_leading_whitespace(): void {
+		$id = $this->enrol( array( 'first_name' => ' =cmd', 'invoice_name' => '@x' ) );
+		Enrolment_Repository::update_admin( $id, 'confirmed', false, '=HYPERLINK("http://evil")' );
+
+		$row = $this->parse( Enrolments_Export::build( array() ) )[1][0];
+
+		$this->assertSame( "' =cmd", $row['Voornaam'] );
+		$this->assertSame( "'@x", $row['Factuurnaam'] );
+		$this->assertSame( "'=HYPERLINK(\"http://evil\")", $row['Interne notitie'] );
+	}
+
 	public function test_harmless_values_are_left_alone_and_multiline_notes_survive(): void {
 		$id = $this->enrol( array( 'employer' => 'Zorg; en meer "Noord"' ) );
 		Enrolment_Repository::update_admin( $id, 'confirmed', true, "regel 1\nregel 2" );
@@ -186,22 +204,37 @@ class EnrolmentExportTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'status=cancelled', $out );
 	}
 
-	public function test_users_without_the_capability_are_denied(): void {
+	public function test_authorised_request_gets_csv_headers_and_the_filtered_body(): void {
+		$this->enrol( array( 'email' => 'a@example.nl' ) );
+		$this->enrol( array( 'email' => 'c@example.nl', 'status' => 'cancelled' ) );
+		$this->as_admin();
+
+		$response = $this->request( array( 'status' => 'cancelled' ) );
+
+		$this->assertContains( 'Content-Type: text/csv; charset=utf-8', $response['headers'] );
+		$this->assertMatchesRegularExpression( '/^Content-Disposition: attachment; filename="inschrijvingen-\d{4}-\d{2}-\d{2}\.csv"$/m', implode( "\n", $response['headers'] ) );
+		$this->assertStringStartsWith( "\xEF\xBB\xBF", $response['body'] );
+		$this->assertSame( array( 'c@example.nl' ), array_column( $this->parse( $response['body'] )[1], 'E-mailadres' ) );
+	}
+
+	public function test_users_without_the_capability_are_denied_with_403(): void {
 		wp_set_current_user( self::factory()->user->create( array( 'role' => 'editor' ) ) );
 
 		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( '403' );
 		$this->request( array() );
 	}
 
 	public function test_requests_without_a_valid_nonce_are_denied(): void {
-		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->as_admin();
 
 		$this->expectException( RuntimeException::class );
+		$this->expectExceptionMessage( '403' );
 		$this->request( array(), null );
 	}
 
 	public function test_a_nonce_for_another_action_is_denied(): void {
-		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$this->as_admin();
 
 		$this->expectException( RuntimeException::class );
 		$this->request( array(), 'gzw_update_enrolment' );
