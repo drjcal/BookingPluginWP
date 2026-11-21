@@ -5,7 +5,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Installer {
 
-	const DB_VERSION = '2';
+	const DB_VERSION = '3';
 
 	const OPTION_DB_VERSION          = 'gzw_booking_db_version';
 	const OPTION_REMOVE_ON_UNINSTALL = 'gzw_booking_remove_data_on_uninstall';
@@ -14,6 +14,9 @@ class Installer {
 	const STATUS_CANCELLED = 'cancelled';
 	/** Status given to a new enrolment. */
 	const STATUS_DEFAULT = self::STATUS_CONFIRMED;
+
+	/** Capability to view and manage enrolments; granted to administrators. */
+	const CAP_MANAGE_ENROLMENTS = 'gzw_manage_enrolments';
 
 	public static function table_name(): string {
 		global $wpdb;
@@ -34,10 +37,19 @@ class Installer {
 		self::create_tables();
 	}
 
+	/** Give administrators the enrolment capability (idempotent). */
+	public static function grant_capabilities(): void {
+		$role = get_role( 'administrator' );
+		if ( $role && ! $role->has_cap( self::CAP_MANAGE_ENROLMENTS ) ) {
+			$role->add_cap( self::CAP_MANAGE_ENROLMENTS );
+		}
+	}
+
 	public static function maybe_upgrade(): void {
 		if ( get_option( self::OPTION_DB_VERSION ) !== self::DB_VERSION ) {
 			self::create_tables();
 		}
+		self::grant_capabilities();
 	}
 
 	/** Drop all plugin data. Called from uninstall.php only when the owner opted in. */
@@ -94,6 +106,8 @@ class Installer {
 				price_cents int(10) unsigned NOT NULL DEFAULT 0,
 				{$field_columns}
 				status varchar(20) NOT NULL DEFAULT '{$status}',
+				invoiced tinyint(1) NOT NULL DEFAULT 0,
+				internal_note text NOT NULL,
 				created_at datetime NOT NULL,
 				PRIMARY KEY  (id),
 				KEY email (email),
@@ -102,6 +116,7 @@ class Installer {
 			) {$charset};"
 		);
 
+		self::grant_capabilities();
 		update_option( self::OPTION_DB_VERSION, self::DB_VERSION );
 	}
 }
