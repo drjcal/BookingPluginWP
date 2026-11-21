@@ -214,15 +214,11 @@ class Enrolments_Admin {
 			return;
 		}
 
-		$groups = array(
-			Enrolment_Fields::GROUP_PERSON  => __( 'Deelnemer', 'gezonder-in-werk-booking' ),
-			Enrolment_Fields::GROUP_BILLING => __( 'Factuurgegevens', 'gezonder-in-werk-booking' ),
-		);
 		echo '<h2>' . esc_html__( 'Inschrijving', 'gezonder-in-werk-booking' ) . '</h2><table class="widefat striped"><tbody>';
 		echo '<tr><th>' . esc_html__( 'Sessie', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( self::session_label( $row ) ) . '</td></tr>';
 		echo '<tr><th>' . esc_html__( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Catalog_Repository::format_price( (int) $row['price_cents'] ) ) . '</td></tr>';
 		echo '<tr><th>' . esc_html__( 'Ingeschreven op', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( self::created_label( $row ) ) . '</td></tr>';
-		foreach ( $groups as $group => $heading ) {
+		foreach ( Enrolment_Fields::groups() as $group => $heading ) {
 			echo '<tr><th colspan="2">' . esc_html( $heading ) . '</th></tr>';
 			foreach ( Enrolment_Fields::in_group( $group ) as $name => $field ) {
 				echo '<tr><th>' . esc_html( $field['label'] ) . '</th><td>' . esc_html( (string) $row[ $name ] ) . '</td></tr>';

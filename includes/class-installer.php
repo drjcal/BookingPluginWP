@@ -5,7 +5,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Installer {
 
-	const DB_VERSION = '4';
+	const DB_VERSION = '5';
 
 	const OPTION_DB_VERSION          = 'gzw_booking_db_version';
 	const OPTION_REMOVE_ON_UNINSTALL = 'gzw_booking_remove_data_on_uninstall';
@@ -32,6 +32,16 @@ class Installer {
 		return $wpdb->prefix . 'gzw_sessions';
 	}
 
+	public static function cycles_table(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'gzw_cycles';
+	}
+
+	public static function cycle_sessions_table(): string {
+		global $wpdb;
+		return $wpdb->prefix . 'gzw_cycle_sessions';
+	}
+
 	public static function activate(): void {
 		self::create_tables();
 	}
@@ -55,7 +65,7 @@ class Installer {
 	/** Drop all plugin data. Called from uninstall.php only when the owner opted in. */
 	public static function uninstall(): void {
 		global $wpdb;
-		foreach ( array( self::table_name(), self::sessions_table(), self::courses_table() ) as $table ) {
+		foreach ( array( self::table_name(), self::cycle_sessions_table(), self::cycles_table(), self::sessions_table(), self::courses_table() ) as $table ) {
 			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL -- table names come from this class.
 		}
 		delete_option( self::OPTION_DB_VERSION );
@@ -103,6 +113,27 @@ class Installer {
 				accreditation text NOT NULL,
 				price_cents int(10) unsigned NOT NULL DEFAULT 0,
 				PRIMARY KEY  (id)
+			) {$charset};"
+		);
+
+		$cycles         = self::cycles_table();
+		$cycle_sessions = self::cycle_sessions_table();
+
+		dbDelta(
+			"CREATE TABLE {$cycles} (
+				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+				title varchar(190) NOT NULL,
+				price_cents int(10) unsigned NOT NULL DEFAULT 0,
+				PRIMARY KEY  (id)
+			) {$charset};"
+		);
+
+		dbDelta(
+			"CREATE TABLE {$cycle_sessions} (
+				cycle_id bigint(20) unsigned NOT NULL,
+				session_id bigint(20) unsigned NOT NULL,
+				PRIMARY KEY  (cycle_id,session_id),
+				KEY session_id (session_id)
 			) {$charset};"
 		);
 

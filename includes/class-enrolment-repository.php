@@ -48,21 +48,86 @@ class Enrolment_Repository {
 		$session_id = (int) ( $values['session_id'] ?? 0 );
 		$result     = Catalog_Repository::with_session_lock(
 			$session_id,
-			static function () use ( $values, $session_id ): array {
-				$session = Catalog_Repository::get_session( $session_id );
-				if ( ! $session || ! Catalog_Repository::is_bookable( $session ) ) {
-					return array( 'id' => 0, 'status' => '', 'error' => 'closed' );
-				}
-				$status = self::has_free_seat( $session ) ? Installer::STATUS_CONFIRMED : Installer::STATUS_WAITLISTED;
-				$id     = self::insert( array( 'status' => $status ) + $values );
-				if ( $id ) {
-					return array( 'id' => $id, 'status' => $status, 'error' => null );
-				}
-				global $wpdb;
-				return array( 'id' => 0, 'status' => '', 'error' => false !== stripos( (string) $wpdb->last_error, 'duplicate entry' ) ? 'duplicate' : 'storage' );
-			}
+			static fn(): array => self::place( $session_id, $values )
 		);
 		return $result ?? array( 'id' => 0, 'status' => '', 'error' => 'storage' );
+	}
+
+	/**
+	 * Store a cycle submission: one enrolment per webinar sharing a group reference, all or nothing.
+	 * The bundle price is recorded once, on the first webinar; the others carry 0, so the group
+	 * totals the bundle price exactly. Each webinar keeps its own seat/waitlist outcome.
+	 * All session locks are held for the whole submission.
+	 *
+	 * @param array<string,string> $values Validated values (price_cents and session_id are replaced per webinar).
+	 * @param array                $cycle  Cycle row with its 'sessions'.
+	 * @return array{id:int,ids:int[],status:string,group_reference:string,error:?string}
+	 *         status: waitlisted when any webinar is, otherwise confirmed. error: closed | duplicate | storage.
+	 */
+	public static function enrol_cycle( array $values, array $cycle ): array {
+		$failed = array( 'id' => 0, 'ids' => array(), 'status' => '', 'group_reference' => '', 'error' => 'storage' );
+		$ids    = array_map( static fn( array $s ) => (int) $s['id'], $cycle['sessions'] );
+
+		$result = Catalog_Repository::with_session_locks(
+			$ids,
+			static function () use ( $values, $cycle, $ids, $failed ): array {
+				// The cycle may have been edited since validation: enrol only when it is unchanged.
+				$current = Catalog_Repository::get_cycle( (int) $cycle['id'] );
+				if ( ! $current || (int) $current['price_cents'] !== (int) $cycle['price_cents'] || array_map( 'intval', array_column( $current['sessions'], 'id' ) ) !== $ids ) {
+					return array( 'error' => 'closed' ) + $failed;
+				}
+				$reference = 'CYC-' . strtoupper( bin2hex( random_bytes( 5 ) ) );
+				$created   = array();
+				$waitlist  = false;
+				foreach ( $ids as $position => $session_id ) {
+					$result = self::place(
+						$session_id,
+						array(
+							'session_id'      => (string) $session_id,
+							'price_cents'     => (string) ( 0 === $position ? (int) $cycle['price_cents'] : 0 ),
+							'group_reference' => $reference,
+						) + $values
+					);
+					if ( $result['error'] ) {
+						global $wpdb;
+						if ( $created ) {
+							$table = Installer::table_name();
+							$wpdb->query( "DELETE FROM {$table} WHERE id IN (" . implode( ',', array_map( 'intval', $created ) ) . ')' ); // phpcs:ignore WordPress.DB.PreparedSQL -- integers only.
+						}
+						return array( 'error' => $result['error'] ) + $failed;
+					}
+					$created[] = $result['id'];
+					$waitlist  = $waitlist || Installer::STATUS_WAITLISTED === $result['status'];
+				}
+				return array(
+					'id'              => $created[0],
+					'ids'             => $created,
+					'status'          => $waitlist ? Installer::STATUS_WAITLISTED : Installer::STATUS_CONFIRMED,
+					'group_reference' => $reference,
+					'error'           => null,
+				);
+			}
+		);
+		return $result ?? $failed;
+	}
+
+	/**
+	 * Insert one enrolment for a session. The caller holds that session's lock.
+	 *
+	 * @return array{id:int,status:string,error:?string}
+	 */
+	private static function place( int $session_id, array $values ): array {
+		$session = Catalog_Repository::get_session( $session_id );
+		if ( ! $session || ! Catalog_Repository::is_bookable( $session ) ) {
+			return array( 'id' => 0, 'status' => '', 'error' => 'closed' );
+		}
+		$status = self::has_free_seat( $session ) ? Installer::STATUS_CONFIRMED : Installer::STATUS_WAITLISTED;
+		$id     = self::insert( array( 'status' => $status ) + $values );
+		if ( $id ) {
+			return array( 'id' => $id, 'status' => $status, 'error' => null );
+		}
+		global $wpdb;
+		return array( 'id' => 0, 'status' => '', 'error' => false !== stripos( (string) $wpdb->last_error, 'duplicate entry' ) ? 'duplicate' : 'storage' );
 	}
 
 	/** @param array<string,mixed> $session Session row incl. id and capacity. */

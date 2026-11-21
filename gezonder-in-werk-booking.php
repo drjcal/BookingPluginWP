@@ -24,6 +24,7 @@ require_once __DIR__ . '/includes/class-enrolment-repository.php';
 require_once __DIR__ . '/includes/class-rest-controller.php';
 require_once __DIR__ . '/includes/class-form-shortcode.php';
 require_once __DIR__ . '/includes/class-admin-page.php';
+require_once __DIR__ . '/includes/class-cycles-admin.php';
 require_once __DIR__ . '/includes/class-enrolments-admin.php';
 require_once __DIR__ . '/includes/class-enrolments-export.php';
 
@@ -39,6 +40,9 @@ add_action( 'admin_post_gzw_save_course', array( Admin_Page::class, 'handle_save
 add_action( 'admin_post_gzw_delete_course', array( Admin_Page::class, 'handle_delete_course' ) );
 add_action( 'admin_post_gzw_save_session', array( Admin_Page::class, 'handle_save_session' ) );
 add_action( 'admin_post_gzw_delete_session', array( Admin_Page::class, 'handle_delete_session' ) );
+add_action( 'admin_menu', array( Cycles_Admin::class, 'register_menu' ) );
+add_action( 'admin_post_gzw_save_cycle', array( Cycles_Admin::class, 'handle_save' ) );
+add_action( 'admin_post_gzw_delete_cycle', array( Cycles_Admin::class, 'handle_delete' ) );
 add_action( 'admin_menu', array( Enrolments_Admin::class, 'register_menu' ) );
 add_action( 'admin_post_gzw_update_enrolment', array( Enrolments_Admin::class, 'handle_update' ) );
 add_action( 'admin_post_gzw_promote_enrolment', array( Enrolments_Admin::class, 'handle_promote' ) );
