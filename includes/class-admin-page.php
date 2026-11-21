@@ -120,7 +120,7 @@ class Admin_Page {
 		$messages = array(
 			'saved'           => array( 'success', __( 'Opgeslagen.', 'gezonder-in-werk-booking' ) ),
 			'deleted'         => array( 'success', __( 'Verwijderd.', 'gezonder-in-werk-booking' ) ),
-			'in_use'          => array( 'error', __( 'Kan niet worden verwijderd: er zijn inschrijvingen of de datum hoort bij een cyclus. Sluit de datum in plaats daarvan.', 'gezonder-in-werk-booking' ) ),
+			'in_use'          => array( 'error', __( 'Kan niet worden verwijderd: er zijn nog actieve (niet-geannuleerde) inschrijvingen of een datum hoort bij een cyclus. Sluit de datum in plaats daarvan.', 'gezonder-in-werk-booking' ) ),
 			'invalid_course'  => array( 'error', __( 'Vul een titel en een geldige prijs (bijv. 125,00) in.', 'gezonder-in-werk-booking' ) ),
 			'invalid_session' => array( 'error', __( 'Vul een geldige datum, begin- en eindtijd (begin vóór eind), locatie en capaciteit (leeg of een positief getal) in.', 'gezonder-in-werk-booking' ) ),
 			'error'           => array( 'error', __( 'Opslaan mislukt.', 'gezonder-in-werk-booking' ) ),

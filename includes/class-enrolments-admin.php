@@ -80,6 +80,26 @@ class Enrolments_Admin {
 		self::back_to_detail( $id, Enrolment_Repository::promote( $id ) );
 	}
 
+	/** Staff erase an enrolment and its personal data (the whole group for a cycle submission). */
+	public static function handle_delete(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			self::deny();
+		}
+		check_admin_referer( 'gzw_delete_enrolment' );
+		$id      = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification -- checked above.
+		$removed = $id ? Enrolment_Repository::delete( $id ) : 0;
+		wp_safe_redirect(
+			add_query_arg(
+				array(
+					'page'       => self::SLUG,
+					'gzw_notice' => $removed ? 'deleted' : 'error',
+				),
+				admin_url( 'admin.php' )
+			)
+		);
+		exit;
+	}
+
 	/** @param string $result ok | full | error */
 	private static function back_to_detail( int $id, string $result ): void {
 		wp_safe_redirect(
@@ -103,6 +123,8 @@ class Enrolments_Admin {
 		$notice = isset( $_GET['gzw_notice'] ) ? sanitize_key( wp_unslash( $_GET['gzw_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
 		if ( 'saved' === $notice ) {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Opgeslagen.', 'gezonder-in-werk-booking' ) . '</p></div>';
+		} elseif ( 'deleted' === $notice ) {
+			echo '<div class="notice notice-success"><p>' . esc_html__( 'Inschrijving en persoonsgegevens verwijderd.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		} elseif ( 'full' === $notice ) {
 			echo '<div class="notice notice-error"><p>' . esc_html__( 'Geen vrije plek: annuleer eerst een bevestigde inschrijving of verhoog de capaciteit.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		} elseif ( 'error' === $notice ) {
@@ -221,7 +243,7 @@ class Enrolments_Admin {
 		foreach ( Enrolment_Fields::groups() as $group => $heading ) {
 			echo '<tr><th colspan="2">' . esc_html( $heading ) . '</th></tr>';
 			foreach ( Enrolment_Fields::in_group( $group ) as $name => $field ) {
-				echo '<tr><th>' . esc_html( $field['label'] ) . '</th><td>' . esc_html( (string) $row[ $name ] ) . '</td></tr>';
+				echo '<tr><th>' . esc_html( $field['label'] ) . '</th><td>' . esc_html( Enrolment_Fields::display_value( $field, (string) $row[ $name ] ) ) . '</td></tr>';
 			}
 		}
 		echo '</tbody></table>';
@@ -252,6 +274,13 @@ class Enrolments_Admin {
 					<td><textarea id="gzw-e-note" name="internal_note" class="large-text" rows="4"><?php echo esc_textarea( $row['internal_note'] ); ?></textarea></td></tr>
 			</table>
 			<?php submit_button( __( 'Opslaan', 'gezonder-in-werk-booking' ) ); ?>
+		</form>
+		<h2><?php esc_html_e( 'Persoonsgegevens verwijderen', 'gezonder-in-werk-booking' ); ?></h2>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm(<?php echo esc_attr( wp_json_encode( __( 'Deze inschrijving en alle persoonsgegevens definitief verwijderen? Bij een cyclus verdwijnen alle webinars van deze inschrijving.', 'gezonder-in-werk-booking' ) ) ); ?>);">
+			<input type="hidden" name="action" value="gzw_delete_enrolment" />
+			<input type="hidden" name="id" value="<?php echo esc_attr( (string) $id ); ?>" />
+			<?php wp_nonce_field( 'gzw_delete_enrolment' ); ?>
+			<?php submit_button( __( 'Inschrijving verwijderen', 'gezonder-in-werk-booking' ), 'delete' ); ?>
 		</form>
 		<?php
 	}

@@ -11,6 +11,9 @@ class Enrolment_Validator {
 	/** First error for a single field value, or null when it is valid. */
 	private static function field_error( array $field, string $value ): ?string {
 		if ( '' === $value ) {
+			if ( 'checkbox' === $field['type'] ) {
+				return $field['required'] ? __( 'Je moet hiermee akkoord gaan om je in te schrijven.', 'gezonder-in-werk-booking' ) : null;
+			}
 			return $field['required'] ? __( 'Dit veld is verplicht.', 'gezonder-in-werk-booking' ) : null;
 		}
 		$max = Enrolment_Fields::max_length( $field );
@@ -47,6 +50,9 @@ class Enrolment_Validator {
 			}
 			$raw   = $input[ $name ] ?? '';
 			$value = is_scalar( $raw ) ? trim( sanitize_text_field( (string) $raw ) ) : '';
+			if ( 'checkbox' === $field['type'] ) {
+				$value = in_array( strtolower( $value ), array( '1', 'on', 'true', 'yes' ), true ) ? '1' : '';
+			}
 			if ( isset( $field['normalise'] ) ) {
 				$value = (string) call_user_func( $field['normalise'], $value );
 			}

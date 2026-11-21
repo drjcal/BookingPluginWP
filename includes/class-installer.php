@@ -5,7 +5,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Installer {
 
-	const DB_VERSION = '5';
+	const DB_VERSION = '6';
 
 	const OPTION_DB_VERSION          = 'gzw_booking_db_version';
 	const OPTION_REMOVE_ON_UNINSTALL = 'gzw_booking_remove_data_on_uninstall';
@@ -60,6 +60,7 @@ class Installer {
 			self::create_tables();
 		}
 		self::grant_capabilities();
+		Retention::schedule();
 	}
 
 	/** Drop all plugin data. Called from uninstall.php only when the owner opted in. */
@@ -71,6 +72,8 @@ class Installer {
 		delete_option( self::OPTION_DB_VERSION );
 		delete_option( self::OPTION_REMOVE_ON_UNINSTALL );
 		delete_option( Settings_Page::OPTION_NOTIFICATION_EMAIL );
+		delete_option( Settings_Page::OPTION_RETENTION_MONTHS );
+		Retention::unschedule();
 	}
 
 	/**
@@ -164,6 +167,7 @@ class Installer {
 				internal_note text NOT NULL,
 				created_at datetime NOT NULL,
 				active_session_id bigint(20) unsigned DEFAULT NULL,
+				anonymised_at datetime DEFAULT NULL,
 				PRIMARY KEY  (id),
 				UNIQUE KEY active_email (active_session_id,email),
 				KEY email (email),
@@ -175,6 +179,7 @@ class Installer {
 		// Before the version is stored, so a failed backfill is retried on the next load.
 		self::backfill_active_session( $installed );
 		self::grant_capabilities();
+		Retention::schedule();
 		update_option( self::OPTION_DB_VERSION, self::DB_VERSION );
 	}
 }

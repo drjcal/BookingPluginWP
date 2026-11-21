@@ -287,4 +287,91 @@ class Enrolment_Repository {
 		}
 		return self::update_admin( $id, Installer::STATUS_CONFIRMED, (bool) (int) $row['invoiced'], (string) $row['internal_note'] );
 	}
+
+	/** Ids of the enrolments that belong together: a cycle submission shares a group reference. */
+	private static function group_ids( int $id ): array {
+		global $wpdb;
+		$table = Installer::table_name();
+		$ref   = (string) $wpdb->get_var( $wpdb->prepare( "SELECT group_reference FROM {$table} WHERE id = %d", $id ) ); // phpcs:ignore WordPress.DB.PreparedSQL -- table from Installer.
+		if ( '' === $ref ) {
+			return array( $id );
+		}
+		return array_map( 'intval', $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$table} WHERE group_reference = %s", $ref ) ) ); // phpcs:ignore WordPress.DB.PreparedSQL
+	}
+
+	/**
+	 * Staff erase an enrolment and its personal data. A cycle submission is one person's data
+	 * across several rows, so the whole group goes together.
+	 *
+	 * @return int Number of rows removed (0 when the enrolment does not exist or the delete failed).
+	 */
+	public static function delete( int $id ): int {
+		global $wpdb;
+		if ( ! self::get( $id ) ) {
+			return 0;
+		}
+		$ids   = self::group_ids( $id );
+		$table = Installer::table_name();
+		$done  = $wpdb->query( "DELETE FROM {$table} WHERE id IN (" . implode( ',', $ids ) . ')' ); // phpcs:ignore WordPress.DB.PreparedSQL -- integers only.
+		return false === $done ? 0 : (int) $done;
+	}
+
+	/**
+	 * Strip the personal data of an enrolment (and its cycle group), keeping what reporting
+	 * needs: session, price, status, invoiced flag, group reference and the consent record.
+	 * The unique e-mail value is replaced per row and the active-session key released, so
+	 * anonymised rows can never collide on (session, email).
+	 *
+	 * @return int Number of rows anonymised.
+	 */
+	public static function anonymise( int $id ): int {
+		global $wpdb;
+		$count = 0;
+		$wpdb->suppress_errors( true );
+		foreach ( self::group_ids( $id ) as $row_id ) {
+			$row = array(
+				'internal_note'     => '',
+				'active_session_id' => null,
+				'anonymised_at'     => current_time( 'mysql', true ),
+			);
+			foreach ( Enrolment_Fields::all() as $name => $field ) {
+				if ( empty( $field['retain'] ) ) {
+					$row[ $name ] = 'email' === $name ? 'anonymised-' . $row_id . '@anonymised.invalid' : '';
+				}
+			}
+			if ( false !== $wpdb->update( Installer::table_name(), $row, array( 'id' => $row_id ) ) ) {
+				++$count;
+			}
+		}
+		$wpdb->suppress_errors( false );
+		return $count;
+	}
+
+	/**
+	 * Anonymise every enrolment whose data is older than the cut-off. Age is the date of the
+	 * session (the creation date when the session is gone); a cycle group is as old as its
+	 * latest webinar, so its rows expire together.
+	 *
+	 * @param string $cutoff Y-m-d; enrolments dated before it expire.
+	 * @return int Rows anonymised.
+	 */
+	public static function anonymise_expired( string $cutoff ): int {
+		global $wpdb;
+		$e   = Installer::table_name();
+		$s   = Installer::sessions_table();
+		$ids = $wpdb->get_col( // phpcs:ignore WordPress.DB.PreparedSQL -- tables from Installer.
+			$wpdb->prepare(
+				"SELECT MIN(e.id) FROM {$e} e LEFT JOIN {$s} s ON s.id = e.session_id
+				WHERE e.anonymised_at IS NULL
+				GROUP BY IF(e.group_reference <> '', e.group_reference, CONCAT('id-', e.id))
+				HAVING MAX(COALESCE(s.session_date, DATE(e.created_at))) < %s",
+				$cutoff
+			)
+		);
+		$count = 0;
+		foreach ( $ids as $id ) {
+			$count += self::anonymise( (int) $id );
+		}
+		return $count;
+	}
 }

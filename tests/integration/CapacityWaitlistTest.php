@@ -46,9 +46,7 @@ class CapacityWaitlistTest extends WP_UnitTestCase {
 	}
 
 	private function submit( int $session, string $email ): WP_REST_Response {
-		$request = new WP_REST_Request( 'POST', '/gezonder-in-werk/v1/enrolments' );
-		$request->set_body_params( $this->params( $session, $email ) );
-		return rest_do_request( $request );
+		return Gzw_Submission::post( $this->params( $session, $email ) );
 	}
 
 	private function status_of( WP_REST_Response $response ): string {

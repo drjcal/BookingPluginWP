@@ -247,30 +247,56 @@ class Catalog_Repository {
 		);
 	}
 
-	public static function session_has_enrolments( int $session_id ): bool {
+	/** Cancelled enrolments hold no seat and do not keep a session or course in place. */
+	public static function session_has_active_enrolments( int $session_id ): bool {
 		global $wpdb;
 		$table = Installer::table_name();
-		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE session_id = %d", $session_id ) );
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE session_id = %d AND status <> %s", $session_id, Installer::STATUS_CANCELLED ) );
 	}
 
-	/** Sessions with enrolments are kept (personal data, price snapshots); so are sessions in a cycle. */
+	/** Why a session cannot be deleted: it has non-cancelled enrolments or belongs to a cycle (close it instead). */
+	private static function session_is_kept( int $session_id ): bool {
+		return self::session_has_active_enrolments( $session_id ) || self::session_in_cycle( $session_id );
+	}
+
 	public static function delete_session( int $id ): bool {
 		global $wpdb;
-		if ( self::session_has_enrolments( $id ) || self::session_in_cycle( $id ) ) {
-			return false;
-		}
-		return false !== $wpdb->delete( Installer::sessions_table(), array( 'id' => $id ) );
+		$deleted = self::with_session_lock(
+			$id,
+			static function () use ( $id, $wpdb ): bool {
+				if ( self::session_is_kept( $id ) ) {
+					return false;
+				}
+				return false !== $wpdb->delete( Installer::sessions_table(), array( 'id' => $id ) );
+			}
+		);
+		return (bool) $deleted;
 	}
 
+	/**
+	 * Deletes the course with its sessions. The course row goes first: when that fails nothing
+	 * changed, and a failure afterwards can only leave unreachable sessions, never a visible
+	 * course without sessions.
+	 */
 	public static function delete_course( int $id ): bool {
 		global $wpdb;
-		foreach ( self::sessions_for_course( $id ) as $session ) {
-			if ( self::session_has_enrolments( (int) $session['id'] ) || self::session_in_cycle( (int) $session['id'] ) ) {
-				return false;
+		$session_ids = array_map( static fn( array $s ) => (int) $s['id'], self::sessions_for_course( $id ) );
+		$deleted     = self::with_session_locks(
+			$session_ids,
+			static function () use ( $id, $session_ids, $wpdb ): bool {
+				foreach ( $session_ids as $session_id ) {
+					if ( self::session_is_kept( $session_id ) ) {
+						return false;
+					}
+				}
+				if ( false === $wpdb->delete( Installer::courses_table(), array( 'id' => $id ) ) ) {
+					return false;
+				}
+				$wpdb->delete( Installer::sessions_table(), array( 'course_id' => $id ) );
+				return true;
 			}
-		}
-		$wpdb->delete( Installer::sessions_table(), array( 'course_id' => $id ) );
-		return false !== $wpdb->delete( Installer::courses_table(), array( 'id' => $id ) );
+		);
+		return (bool) $deleted;
 	}
 
 	public static function format_price( int $cents ): string {
