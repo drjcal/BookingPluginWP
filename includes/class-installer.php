@@ -58,10 +58,9 @@ class Installer {
 		$charset = $wpdb->get_charset_collate();
 
 		$field_columns = implode( ",\n\t\t\t\t", Enrolment_Fields::column_sql() ) . ',';
-
 		$status        = self::STATUS_DEFAULT;
-		$courses  = self::courses_table();
-		$sessions = self::sessions_table();
+		$courses       = self::courses_table();
+		$sessions      = self::sessions_table();
 
 		dbDelta(
 			"CREATE TABLE {$courses} (

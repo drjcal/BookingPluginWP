@@ -29,11 +29,9 @@ class Enrolment_Fields {
 
 	/** @return array<string,array<string,mixed>> */
 	public static function all(): array {
-		$d = 'gezonder-in-werk-booking';
-
 		return array(
 			'first_name'        => array(
-				'label'        => __( 'Voornaam', $d ),
+				'label'        => __( 'Voornaam', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'given-name',
 				'required'     => true,
@@ -41,7 +39,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(100)',
 			),
 			'last_name'         => array(
-				'label'        => __( 'Achternaam', $d ),
+				'label'        => __( 'Achternaam', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'family-name',
 				'required'     => true,
@@ -49,7 +47,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(100)',
 			),
 			'email'             => array(
-				'label'        => __( 'E-mailadres', $d ),
+				'label'        => __( 'E-mailadres', 'gezonder-in-werk-booking' ),
 				'type'         => 'email',
 				'autocomplete' => 'email',
 				'required'     => true,
@@ -57,7 +55,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(190)',
 			),
 			'employer'          => array(
-				'label'        => __( 'Werkzaam bij', $d ),
+				'label'        => __( 'Werkzaam bij', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'organization',
 				'required'     => true,
@@ -65,7 +63,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(190)',
 			),
 			'big_number'        => array(
-				'label'           => __( 'BIG-registratienummer', $d ),
+				'label'           => __( 'BIG-registratienummer', 'gezonder-in-werk-booking' ),
 				'type'            => 'text',
 				'autocomplete'    => 'off',
 				'required'        => false,
@@ -73,12 +71,12 @@ class Enrolment_Fields {
 				'storage'         => 'varchar(11)',
 				'normalise'       => array( self::class, 'strip_whitespace' ),
 				'pattern'         => '/^\d{11}$/',
-				'pattern_message' => __( 'Een BIG-registratienummer bestaat uit 11 cijfers.', $d ),
+				'pattern_message' => __( 'Een BIG-registratienummer bestaat uit 11 cijfers.', 'gezonder-in-werk-booking' ),
 				'inputmode'       => 'numeric',
 				'describedby'     => 'gzw-big-hint',
 			),
 			'invoice_name'      => array(
-				'label'        => __( 'Factuurnaam', $d ),
+				'label'        => __( 'Factuurnaam', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'organization',
 				'required'     => true,
@@ -86,7 +84,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(190)',
 			),
 			'invoice_street'    => array(
-				'label'        => __( 'Straat en huisnummer', $d ),
+				'label'        => __( 'Straat en huisnummer', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'street-address',
 				'required'     => true,
@@ -94,7 +92,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(190)',
 			),
 			'invoice_postcode'  => array(
-				'label'        => __( 'Postcode', $d ),
+				'label'        => __( 'Postcode', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'postal-code',
 				'required'     => true,
@@ -102,7 +100,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(20)',
 			),
 			'invoice_city'      => array(
-				'label'        => __( 'Plaats', $d ),
+				'label'        => __( 'Plaats', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'address-level2',
 				'required'     => true,
@@ -110,7 +108,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(100)',
 			),
 			'invoice_email'     => array(
-				'label'        => __( 'Factuur e-mailadres', $d ),
+				'label'        => __( 'Factuur e-mailadres', 'gezonder-in-werk-booking' ),
 				'type'         => 'email',
 				'autocomplete' => 'off',
 				'required'     => false,
@@ -118,7 +116,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(190)',
 			),
 			'invoice_reference' => array(
-				'label'        => __( 'PO- of referentienummer', $d ),
+				'label'        => __( 'PO- of referentienummer', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'off',
 				'required'     => false,
@@ -126,7 +124,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(190)',
 			),
 			'invoice_kvk'       => array(
-				'label'        => __( 'KvK-nummer', $d ),
+				'label'        => __( 'KvK-nummer', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'off',
 				'required'     => false,
@@ -134,7 +132,7 @@ class Enrolment_Fields {
 				'storage'      => 'varchar(50)',
 			),
 			'invoice_btw'       => array(
-				'label'        => __( 'BTW-nummer', $d ),
+				'label'        => __( 'BTW-nummer', 'gezonder-in-werk-booking' ),
 				'type'         => 'text',
 				'autocomplete' => 'off',
 				'required'     => false,
@@ -149,6 +147,7 @@ class Enrolment_Fields {
 		return array_filter( self::all(), static fn( array $f ) => $group === $f['group'] );
 	}
 
+	/** Maximum length of a field value in characters. */
 	public static function max_length( array $field ): int {
 		return (int) ( $field['max'] ?? self::MAX_LENGTH );
 	}
