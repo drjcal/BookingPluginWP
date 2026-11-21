@@ -48,8 +48,7 @@ class Enrolments_Export {
 		$headers = array(
 			__( 'Ingeschreven op', 'gezonder-in-werk-booking' ),
 			__( 'Cursus', 'gezonder-in-werk-booking' ),
-			__( 'Sessiedatum', 'gezonder-in-werk-booking' ),
-			__( 'Locatie', 'gezonder-in-werk-booking' ),
+			__( 'Sessie', 'gezonder-in-werk-booking' ),
 		);
 		foreach ( $fields as $field ) {
 			$headers[] = $field['label'];
@@ -68,8 +67,7 @@ class Enrolments_Export {
 			$cells = array(
 				mysql2date( 'd-m-Y H:i', get_date_from_gmt( $row['created_at'] ) ),
 				(string) $row['course_title'],
-				$row['session_date'] ? mysql2date( 'd-m-Y', $row['session_date'] ) : '',
-				(string) $row['location'],
+				Enrolments_Admin::session_label( $row ),
 			);
 			foreach ( array_keys( $fields ) as $name ) {
 				$cells[] = (string) $row[ $name ];
@@ -77,7 +75,7 @@ class Enrolments_Export {
 			array_push(
 				$cells,
 				Catalog_Repository::format_price( (int) $row['price_cents'] ),
-				Installer::STATUS_CANCELLED === $row['status'] ? __( 'Geannuleerd', 'gezonder-in-werk-booking' ) : __( 'Bevestigd', 'gezonder-in-werk-booking' ),
+				Enrolments_Admin::status_label( $row['status'] ),
 				(int) $row['invoiced'] ? __( 'Ja', 'gezonder-in-werk-booking' ) : __( 'Nee', 'gezonder-in-werk-booking' ),
 				(string) $row['internal_note']
 			);

@@ -99,10 +99,20 @@ class EnrolmentExportTest extends WP_UnitTestCase {
 		$this->assertCount( 1, $rows );
 		$this->assertSame( 'Renée', $rows[0]['Voornaam'] );
 		$this->assertSame( 'Ergonomie', $rows[0]['Cursus'] );
-		$this->assertSame( '15-03-2027', $rows[0]['Sessiedatum'] );
+		$this->assertSame( 'Ergonomie – 15-03-2027, Eindhoven', $rows[0]['Sessie'] );
+		$this->assertSame( '€ 125,00', $rows[0]['Prijs excl. BTW'] );
 		$this->assertSame( '5611 AB', $rows[0]['Postcode'] );
 		$this->assertSame( 'Bevestigd', $rows[0]['Status'] );
 		$this->assertSame( 'Nee', $rows[0]['Gefactureerd'] );
+	}
+
+	public function test_session_cell_shows_a_placeholder_when_the_session_is_gone(): void {
+		$this->enrol( array( 'session_id' => 999999 ) );
+
+		$row = $this->parse( Enrolments_Export::build( array() ) )[1][0];
+
+		$this->assertSame( 'Onbekende sessie', $row['Sessie'] );
+		$this->assertSame( '', $row['Cursus'] );
 	}
 
 	public function test_export_respects_course_session_status_and_search_filters(): void {

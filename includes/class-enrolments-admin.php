@@ -28,14 +28,14 @@ class Enrolments_Admin {
 		wp_die( esc_html__( 'Geen toegang.', 'gezonder-in-werk-booking' ), 403 );
 	}
 
-	private static function status_label( string $status ): string {
+	public static function status_label( string $status ): string {
 		return Installer::STATUS_CANCELLED === $status
 			? __( 'Geannuleerd', 'gezonder-in-werk-booking' )
 			: __( 'Bevestigd', 'gezonder-in-werk-booking' );
 	}
 
 	/** Session cell: course and date, or a placeholder when the session no longer matches. */
-	private static function session_label( array $row ): string {
+	public static function session_label( array $row ): string {
 		if ( empty( $row['course_title'] ) ) {
 			return __( 'Onbekende sessie', 'gezonder-in-werk-booking' );
 		}
