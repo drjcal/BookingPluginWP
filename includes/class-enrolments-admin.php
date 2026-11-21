@@ -28,7 +28,7 @@ class Enrolments_Admin {
 		wp_die( esc_html__( 'Geen toegang.', 'gezonder-in-werk-booking' ), 403 );
 	}
 
-	private static function status_label( string $status ): string {
+	public static function status_label( string $status ): string {
 		if ( Installer::STATUS_CANCELLED === $status ) {
 			return __( 'Geannuleerd', 'gezonder-in-werk-booking' );
 		}
@@ -38,8 +38,13 @@ class Enrolments_Admin {
 		return __( 'Bevestigd', 'gezonder-in-werk-booking' );
 	}
 
+	/** "Ingeschreven op" cell: enrolment timestamp in site time. */
+	public static function created_label( array $row ): string {
+		return mysql2date( 'd-m-Y H:i', get_date_from_gmt( $row['created_at'] ) );
+	}
+
 	/** Session cell: course and date, or a placeholder when the session no longer matches. */
-	private static function session_label( array $row ): string {
+	public static function session_label( array $row ): string {
 		if ( empty( $row['course_title'] ) ) {
 			return __( 'Onbekende sessie', 'gezonder-in-werk-booking' );
 		}
@@ -112,7 +117,8 @@ class Enrolments_Admin {
 		echo '</div>';
 	}
 
-	private static function filters(): array {
+	/** Active list filters from the request; shared with the CSV export. */
+	public static function filters(): array {
 		// phpcs:disable WordPress.Security.NonceVerification -- read-only filters.
 		return array(
 			'course'  => isset( $_GET['course'] ) ? absint( $_GET['course'] ) : 0,
@@ -129,6 +135,7 @@ class Enrolments_Admin {
 		$result  = Enrolment_Repository::query( $filters, $page, self::PER_PAGE );
 
 		self::render_filter_form( $filters );
+		echo '<p><a class="button" href="' . esc_url( Enrolments_Export::url( $filters ) ) . '">' . esc_html__( 'Exporteer naar CSV', 'gezonder-in-werk-booking' ) . '</a></p>';
 
 		$columns = Enrolment_Fields::list_fields();
 		echo '<table class="widefat striped"><thead><tr>';
@@ -152,7 +159,7 @@ class Enrolments_Admin {
 			}
 			echo '<td>' . esc_html( self::session_label( $row ) ) . '</td>';
 			echo '<td>' . esc_html( self::status_label( $row['status'] ) ) . '</td>';
-			echo '<td>' . esc_html( mysql2date( 'd-m-Y H:i', get_date_from_gmt( $row['created_at'] ) ) ) . '</td>';
+			echo '<td>' . esc_html( self::created_label( $row ) ) . '</td>';
 			echo '</tr>';
 		}
 		echo '</tbody></table>';
@@ -214,7 +221,7 @@ class Enrolments_Admin {
 		echo '<h2>' . esc_html__( 'Inschrijving', 'gezonder-in-werk-booking' ) . '</h2><table class="widefat striped"><tbody>';
 		echo '<tr><th>' . esc_html__( 'Sessie', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( self::session_label( $row ) ) . '</td></tr>';
 		echo '<tr><th>' . esc_html__( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Catalog_Repository::format_price( (int) $row['price_cents'] ) ) . '</td></tr>';
-		echo '<tr><th>' . esc_html__( 'Ingeschreven op', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( mysql2date( 'd-m-Y H:i', get_date_from_gmt( $row['created_at'] ) ) ) . '</td></tr>';
+		echo '<tr><th>' . esc_html__( 'Ingeschreven op', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( self::created_label( $row ) ) . '</td></tr>';
 		foreach ( $groups as $group => $heading ) {
 			echo '<tr><th colspan="2">' . esc_html( $heading ) . '</th></tr>';
 			foreach ( Enrolment_Fields::in_group( $group ) as $name => $field ) {

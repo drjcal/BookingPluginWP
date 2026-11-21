@@ -105,6 +105,29 @@ class Enrolment_Repository {
 	 * @return array{rows:array<int,array<string,mixed>>,total:int}
 	 */
 	public static function query( array $filters, int $page, int $per_page ): array {
+		list( $clause, $args ) = self::filter_clause( $filters );
+		$offset                = max( 0, ( $page - 1 ) * $per_page );
+
+		$rows  = self::select_with_session( $clause, $args, sprintf( 'ORDER BY e.created_at DESC, e.id DESC LIMIT %d OFFSET %d', $per_page, $offset ) );
+		$total = (int) self::scalar( $clause, $args );
+
+		return array( 'rows' => $rows, 'total' => $total );
+	}
+
+	/**
+	 * Every enrolment matching the filters (no pagination), newest first.
+	 * Used by the CSV export so it always matches the admin list.
+	 *
+	 * @param array{course?:int,session?:int,status?:string,search?:string} $filters
+	 * @return array<int,array<string,mixed>>
+	 */
+	public static function all( array $filters ): array {
+		list( $clause, $args ) = self::filter_clause( $filters );
+		return self::select_with_session( $clause, $args, 'ORDER BY e.created_at DESC, e.id DESC' );
+	}
+
+	/** @return array{0:string,1:array<int,mixed>} WHERE clause and its prepare() arguments. */
+	private static function filter_clause( array $filters ): array {
 		global $wpdb;
 		$where = array();
 		$args  = array();
@@ -133,13 +156,7 @@ class Enrolment_Repository {
 			$where[] = '(' . implode( ' OR ', $parts ) . ')';
 		}
 
-		$clause = $where ? 'WHERE ' . implode( ' AND ', $where ) : '';
-		$offset = max( 0, ( $page - 1 ) * $per_page );
-
-		$rows  = self::select_with_session( $clause, $args, sprintf( 'ORDER BY e.created_at DESC, e.id DESC LIMIT %d OFFSET %d', $per_page, $offset ) );
-		$total = (int) self::scalar( $clause, $args );
-
-		return array( 'rows' => $rows, 'total' => $total );
+		return array( $where ? 'WHERE ' . implode( ' AND ', $where ) : '', $args );
 	}
 
 	/** @return array<int,array<string,mixed>> */
