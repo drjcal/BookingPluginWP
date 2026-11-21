@@ -28,7 +28,8 @@ class Catalog_Repository {
 	}
 
 	/**
-	 * @param array $data course_id, session_date (Y-m-d), start_time, end_time (H:i), location, is_open.
+	 * @param array $data course_id, session_date (Y-m-d), start_time, end_time (H:i), location, is_open,
+	 *                    capacity (positive int; empty or missing = unlimited).
 	 */
 	public static function save_session( array $data, int $id = 0 ): int {
 		global $wpdb;
@@ -39,11 +40,40 @@ class Catalog_Repository {
 			'end_time'     => (string) ( $data['end_time'] ?? '' ),
 			'location'     => (string) ( $data['location'] ?? '' ),
 			'is_open'      => empty( $data['is_open'] ) ? 0 : 1,
+			'capacity'     => ( isset( $data['capacity'] ) && (int) $data['capacity'] > 0 ) ? (int) $data['capacity'] : null,
 		);
 		if ( $id ) {
-			return false === $wpdb->update( Installer::sessions_table(), $row, array( 'id' => $id ) ) ? 0 : $id;
+			// Same lock as enrolling, so closing a session cannot interleave with a submission in flight.
+			return (int) self::with_session_lock(
+				$id,
+				static fn() => false === $wpdb->update( Installer::sessions_table(), $row, array( 'id' => $id ) ) ? 0 : $id
+			);
 		}
 		return $wpdb->insert( Installer::sessions_table(), $row ) ? (int) $wpdb->insert_id : 0;
+	}
+
+	/**
+	 * Run $callback while holding a per-session lock (MySQL named lock; works under autocommit
+	 * and is re-entrant on one connection). Returns null without running when the lock is not obtained.
+	 *
+	 * @return mixed
+	 */
+	public static function with_session_lock( int $session_id, callable $callback ) {
+		global $wpdb;
+		$name = 'gzw_session_' . md5( $wpdb->prefix . $session_id ); // Lock names max 64 chars.
+		if ( 1 !== (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $name ) ) ) {
+			return null;
+		}
+		try {
+			return $callback();
+		} finally {
+			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $name ) );
+		}
+	}
+
+	/** Open and not yet past (a session today is still bookable). */
+	public static function is_bookable( array $session ): bool {
+		return (bool) (int) $session['is_open'] && $session['session_date'] >= current_time( 'Y-m-d' );
 	}
 
 	public static function get_course( int $id ): ?array {
@@ -82,14 +112,17 @@ class Catalog_Repository {
 		);
 	}
 
-	/** Open sessions of all courses, soonest first. */
+	/** Open sessions that have not passed, of all courses, soonest first. */
 	public static function open_sessions(): array {
 		global $wpdb;
 		$s = Installer::sessions_table();
 		$c = Installer::courses_table();
 		return $wpdb->get_results(
-			"SELECT s.*, c.title, c.price_cents FROM {$s} s JOIN {$c} c ON c.id = s.course_id
-			WHERE s.is_open = 1 ORDER BY s.session_date ASC, s.start_time ASC",
+			$wpdb->prepare(
+				"SELECT s.*, c.title, c.price_cents FROM {$s} s JOIN {$c} c ON c.id = s.course_id
+				WHERE s.is_open = 1 AND s.session_date >= %s ORDER BY s.session_date ASC, s.start_time ASC",
+				current_time( 'Y-m-d' )
+			),
 			ARRAY_A
 		);
 	}

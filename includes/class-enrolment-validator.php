@@ -55,7 +55,7 @@ class Enrolment_Validator {
 
 		if ( ! $session ) {
 			$errors['session_id'] = __( 'Kies een datum waarvoor je je wilt inschrijven.', 'gezonder-in-werk-booking' );
-		} elseif ( ! (int) $session['is_open'] ) {
+		} elseif ( ! Catalog_Repository::is_bookable( $session ) ) {
 			$errors['session_id'] = __( 'Inschrijven voor deze datum is gesloten.', 'gezonder-in-werk-booking' );
 		} else {
 			$values['price_cents'] = (string) (int) $session['price_cents']; // Snapshot.

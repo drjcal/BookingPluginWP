@@ -285,9 +285,9 @@ class EnrolmentSubmissionTest extends WP_UnitTestCase {
 	}
 
 	public function test_cancelled_enrolment_does_not_block_a_new_one(): void {
-		global $wpdb;
 		$this->submit( $this->valid() );
-		$wpdb->update( $wpdb->prefix . 'gzw_enrolments', array( 'status' => 'cancelled' ), array( 'status' => 'confirmed' ) );
+		$id = (int) $this->stored()[0]['id'];
+		\GezonderInWerk\Booking\Enrolment_Repository::update_admin( $id, 'cancelled', false, '' );
 
 		$this->assertSame( 201, $this->submit( $this->valid() )->get_status() );
 	}

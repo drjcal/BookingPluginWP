@@ -30,8 +30,9 @@ register_activation_hook( __FILE__, array( Installer::class, 'activate' ) );
 
 add_action( 'rest_api_init', array( Rest_Controller::class, 'register_routes' ) );
 add_action( 'init', array( Form_Shortcode::class, 'register' ) );
-// Keep the schema current when the plugin is updated without re-activation.
-add_action( 'plugins_loaded', array( Installer::class, 'maybe_upgrade' ) );
+// Keep the schema current when the plugin is updated without re-activation. On init, not
+// plugins_loaded: the schema uses translated labels, which must not load before init (WP 6.7+).
+add_action( 'init', array( Installer::class, 'maybe_upgrade' ) );
 add_action( 'admin_menu', array( Admin_Page::class, 'register_menu' ) );
 add_action( 'admin_post_gzw_save_course', array( Admin_Page::class, 'handle_save_course' ) );
 add_action( 'admin_post_gzw_delete_course', array( Admin_Page::class, 'handle_delete_course' ) );
@@ -39,3 +40,4 @@ add_action( 'admin_post_gzw_save_session', array( Admin_Page::class, 'handle_sav
 add_action( 'admin_post_gzw_delete_session', array( Admin_Page::class, 'handle_delete_session' ) );
 add_action( 'admin_menu', array( Enrolments_Admin::class, 'register_menu' ) );
 add_action( 'admin_post_gzw_update_enrolment', array( Enrolments_Admin::class, 'handle_update' ) );
+add_action( 'admin_post_gzw_promote_enrolment', array( Enrolments_Admin::class, 'handle_promote' ) );
