@@ -8,7 +8,7 @@ defined( 'ABSPATH' ) || exit;
  */
 class Enrolment_Validator {
 
-	/** field => [ label, required ] */
+	/** field => required? */
 	const FIELDS = array(
 		'first_name'        => true,
 		'last_name'         => true,
@@ -39,6 +39,12 @@ class Enrolment_Validator {
 
 			if ( $required && '' === $values[ $field ] ) {
 				$errors[ $field ] = __( 'Dit veld is verplicht.', 'gezonder-in-werk-booking' );
+			}
+		}
+
+		foreach ( $values as $field => $value ) {
+			if ( ! isset( $errors[ $field ] ) && mb_strlen( $value ) > 100 ) {
+				$errors[ $field ] = __( 'Deze waarde is te lang (maximaal 100 tekens).', 'gezonder-in-werk-booking' );
 			}
 		}
 

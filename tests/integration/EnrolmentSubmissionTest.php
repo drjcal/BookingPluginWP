@@ -137,6 +137,17 @@ class EnrolmentSubmissionTest extends WP_UnitTestCase {
 		$this->assertSame( 'geen-email', $data['values']['email'] );
 	}
 
+	public function test_over_long_value_gets_a_field_error_not_a_server_error(): void {
+		$params             = $this->valid();
+		$params['employer'] = str_repeat( 'a', 101 );
+
+		$response = $this->submit( $params );
+
+		$this->assertSame( 422, $response->get_status() );
+		$this->assertArrayHasKey( 'employer', $response->get_data()['errors'] );
+		$this->assertCount( 0, $this->stored() );
+	}
+
 	public function test_plugin_activation_creates_enrolment_storage(): void {
 		global $wpdb;
 		$table = $wpdb->prefix . 'gzw_enrolments';

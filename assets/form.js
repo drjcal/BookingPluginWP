@@ -10,7 +10,12 @@
 			} );
 			form.querySelectorAll( '[aria-invalid]' ).forEach( function ( el ) {
 				el.removeAttribute( 'aria-invalid' );
-				el.removeAttribute( 'aria-describedby' );
+				var original = el.getAttribute( 'data-gzw-describedby' );
+				if ( original ) {
+					el.setAttribute( 'aria-describedby', original );
+				} else {
+					el.removeAttribute( 'aria-describedby' );
+				}
 			} );
 		}
 
@@ -24,7 +29,10 @@
 				}
 				slot.textContent = errors[ name ];
 				input.setAttribute( 'aria-invalid', 'true' );
-				input.setAttribute( 'aria-describedby', slot.id );
+				if ( input.hasAttribute( 'aria-describedby' ) ) {
+					input.setAttribute( 'data-gzw-describedby', input.getAttribute( 'aria-describedby' ) );
+				}
+				input.setAttribute( 'aria-describedby', slot.id + ( input.getAttribute( 'data-gzw-describedby' ) ? ' ' + input.getAttribute( 'data-gzw-describedby' ) : '' ) );
 				first = first || input;
 			} );
 			if ( first ) {
