@@ -1,0 +1,7 @@
+{
+  "name": "gezonder-in-werk/booking",
+  "type": "wordpress-plugin",
+  "require": { "php": ">=8.0" },
+  "require-dev": { "yoast/phpunit-polyfills": "^2.0", "phpunit/phpunit": "^9.6" },
+  "config": { "allow-plugins": {} }
+}
