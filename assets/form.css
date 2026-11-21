@@ -1,0 +1,9 @@
+.gzw-form fieldset { border: 0; margin: 0 0 1.5rem; padding: 0; }
+.gzw-form legend { font-weight: 700; font-size: 1.15em; margin-bottom: .5rem; }
+.gzw-form__field { margin: 0 0 1rem; }
+.gzw-form label { display: block; margin-bottom: .25rem; }
+.gzw-form input { width: 100%; max-width: 32rem; box-sizing: border-box; min-height: 2.75rem; font-size: 1rem; }
+.gzw-form input[aria-invalid="true"] { border: 2px solid #b32d2e; }
+.gzw-form__error { display: block; color: #b32d2e; font-size: .9em; }
+.gzw-form__hint { font-size: .9em; }
+.gzw-form__status:not(:empty) { margin-bottom: 1rem; padding: .75rem; border: 2px solid currentColor; }
