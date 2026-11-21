@@ -24,6 +24,7 @@ require_once __DIR__ . '/includes/class-enrolment-repository.php';
 require_once __DIR__ . '/includes/class-rest-controller.php';
 require_once __DIR__ . '/includes/class-form-shortcode.php';
 require_once __DIR__ . '/includes/class-admin-page.php';
+require_once __DIR__ . '/includes/class-enrolments-admin.php';
 
 register_activation_hook( __FILE__, array( Installer::class, 'activate' ) );
 
@@ -36,3 +37,5 @@ add_action( 'admin_post_gzw_save_course', array( Admin_Page::class, 'handle_save
 add_action( 'admin_post_gzw_delete_course', array( Admin_Page::class, 'handle_delete_course' ) );
 add_action( 'admin_post_gzw_save_session', array( Admin_Page::class, 'handle_save_session' ) );
 add_action( 'admin_post_gzw_delete_session', array( Admin_Page::class, 'handle_delete_session' ) );
+add_action( 'admin_menu', array( Enrolments_Admin::class, 'register_menu' ) );
+add_action( 'admin_post_gzw_update_enrolment', array( Enrolments_Admin::class, 'handle_update' ) );

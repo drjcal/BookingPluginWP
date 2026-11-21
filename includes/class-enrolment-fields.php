@@ -19,6 +19,8 @@ defined( 'ABSPATH' ) || exit;
  *  - pattern      (optional) regex the normalised value must match when given.
  *  - pattern_message (optional) error shown when the pattern fails.
  *  - inputmode / describedby (optional) form attributes.
+ *  - list         (optional) true to show the field as a column in the admin list.
+ *  - search       (optional) true to include the field in the admin list search.
  */
 class Enrolment_Fields {
 
@@ -37,6 +39,8 @@ class Enrolment_Fields {
 				'required'     => true,
 				'group'        => self::GROUP_PERSON,
 				'storage'      => 'varchar(100)',
+				'list'         => true,
+				'search'       => true,
 			),
 			'last_name'         => array(
 				'label'        => __( 'Achternaam', 'gezonder-in-werk-booking' ),
@@ -45,6 +49,8 @@ class Enrolment_Fields {
 				'required'     => true,
 				'group'        => self::GROUP_PERSON,
 				'storage'      => 'varchar(100)',
+				'list'         => true,
+				'search'       => true,
 			),
 			'email'             => array(
 				'label'        => __( 'E-mailadres', 'gezonder-in-werk-booking' ),
@@ -53,6 +59,8 @@ class Enrolment_Fields {
 				'required'     => true,
 				'group'        => self::GROUP_PERSON,
 				'storage'      => 'varchar(190)',
+				'list'         => true,
+				'search'       => true,
 			),
 			'employer'          => array(
 				'label'        => __( 'Werkzaam bij', 'gezonder-in-werk-booking' ),
@@ -61,6 +69,8 @@ class Enrolment_Fields {
 				'required'     => true,
 				'group'        => self::GROUP_PERSON,
 				'storage'      => 'varchar(190)',
+				'list'         => true,
+				'search'       => true,
 			),
 			'big_number'        => array(
 				'label'           => __( 'BIG-registratienummer', 'gezonder-in-werk-booking' ),
@@ -74,6 +84,7 @@ class Enrolment_Fields {
 				'pattern_message' => __( 'Een BIG-registratienummer bestaat uit 11 cijfers.', 'gezonder-in-werk-booking' ),
 				'inputmode'       => 'numeric',
 				'describedby'     => 'gzw-big-hint',
+				'list'            => true,
 			),
 			'invoice_name'      => array(
 				'label'        => __( 'Factuurnaam', 'gezonder-in-werk-booking' ),
@@ -145,6 +156,16 @@ class Enrolment_Fields {
 	/** @return array<string,array<string,mixed>> Fields of one group, keyed by name. */
 	public static function in_group( string $group ): array {
 		return array_filter( self::all(), static fn( array $f ) => $group === $f['group'] );
+	}
+
+	/** @return array<string,array<string,mixed>> Fields shown as admin list columns. */
+	public static function list_fields(): array {
+		return array_filter( self::all(), static fn( array $f ) => ! empty( $f['list'] ) );
+	}
+
+	/** @return string[] Names of the fields the admin list search looks in. */
+	public static function search_fields(): array {
+		return array_keys( array_filter( self::all(), static fn( array $f ) => ! empty( $f['search'] ) ) );
 	}
 
 	/** Maximum length of a field value in characters. */

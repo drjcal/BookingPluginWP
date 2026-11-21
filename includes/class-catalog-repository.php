@@ -94,6 +94,17 @@ class Catalog_Repository {
 		);
 	}
 
+	/** All sessions with their course title, latest first (open or closed). */
+	public static function all_sessions(): array {
+		global $wpdb;
+		$s = Installer::sessions_table();
+		$c = Installer::courses_table();
+		return $wpdb->get_results(
+			"SELECT s.*, c.title FROM {$s} s JOIN {$c} c ON c.id = s.course_id ORDER BY s.session_date DESC, s.start_time ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- no user input.
+			ARRAY_A
+		);
+	}
+
 	public static function session_has_enrolments( int $session_id ): bool {
 		global $wpdb;
 		$table = Installer::table_name();
