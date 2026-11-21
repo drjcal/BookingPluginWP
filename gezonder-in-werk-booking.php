@@ -23,6 +23,8 @@ require_once __DIR__ . '/includes/class-enrolment-validator.php';
 require_once __DIR__ . '/includes/class-enrolment-repository.php';
 require_once __DIR__ . '/includes/class-enrolment-messages.php';
 require_once __DIR__ . '/includes/class-settings-page.php';
+require_once __DIR__ . '/includes/class-spam-guard.php';
+require_once __DIR__ . '/includes/class-retention.php';
 require_once __DIR__ . '/includes/class-rest-controller.php';
 require_once __DIR__ . '/includes/class-enrolments-admin.php';
 require_once __DIR__ . '/includes/class-enrolment-mailer.php';
@@ -33,6 +35,7 @@ require_once __DIR__ . '/includes/class-enrolments-admin.php';
 require_once __DIR__ . '/includes/class-enrolments-export.php';
 
 register_activation_hook( __FILE__, array( Installer::class, 'activate' ) );
+register_deactivation_hook( __FILE__, array( Retention::class, 'unschedule' ) );
 
 add_action( 'rest_api_init', array( Rest_Controller::class, 'register_routes' ) );
 add_action( 'init', array( Form_Shortcode::class, 'register' ) );
@@ -52,4 +55,6 @@ add_action( 'admin_post_gzw_delete_cycle', array( Cycles_Admin::class, 'handle_d
 add_action( 'admin_menu', array( Enrolments_Admin::class, 'register_menu' ) );
 add_action( 'admin_post_gzw_update_enrolment', array( Enrolments_Admin::class, 'handle_update' ) );
 add_action( 'admin_post_gzw_promote_enrolment', array( Enrolments_Admin::class, 'handle_promote' ) );
+add_action( Retention::HOOK, array( Retention::class, 'run' ) );
+add_action( 'admin_post_gzw_delete_enrolment', array( Enrolments_Admin::class, 'handle_delete' ) );
 add_action( 'admin_post_gzw_export_enrolments', array( Enrolments_Export::class, 'handle_export' ) );

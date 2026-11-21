@@ -69,7 +69,7 @@ class Enrolments_Export {
 			array( __( 'Sessie', 'gezonder-in-werk-booking' ), array( Enrolments_Admin::class, 'session_label' ) ),
 		);
 		foreach ( Enrolment_Fields::all() as $name => $field ) {
-			$columns[] = array( $field['label'], static fn( array $row ) => (string) $row[ $name ] );
+			$columns[] = array( $field['label'], static fn( array $row ) => Enrolment_Fields::display_value( $field, (string) $row[ $name ] ) );
 		}
 		return array_merge(
 			$columns,

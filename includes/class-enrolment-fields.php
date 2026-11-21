@@ -23,12 +23,17 @@ defined( 'ABSPATH' ) || exit;
  *                 request, never validated, never shown on the form.
  *  - list         (optional) true to show the field as a column in the admin list.
  *  - search       (optional) true to include the field in the admin list search.
+ *  - default      (optional) SQL default for the column; makes the column NOT NULL DEFAULT <default>.
+ *  - retain       (optional) true to keep the value when an enrolment is anonymised (no personal data).
+ *
+ * Type 'checkbox' fields are stored as '1' (ticked) or '0'.
  */
 class Enrolment_Fields {
 
 	const GROUP_PERSON  = 'person';
 	const GROUP_BILLING = 'billing';
 	const GROUP_CYCLE   = 'cycle';
+	const GROUP_CONSENT = 'consent';
 
 	const MAX_LENGTH = 100;
 
@@ -43,6 +48,7 @@ class Enrolment_Fields {
 			self::GROUP_PERSON  => __( 'Deelnemer', 'gezonder-in-werk-booking' ),
 			self::GROUP_BILLING => __( 'Factuurgegevens', 'gezonder-in-werk-booking' ),
 			self::GROUP_CYCLE   => __( 'Cyclus', 'gezonder-in-werk-booking' ),
+			self::GROUP_CONSENT => __( 'Toestemming', 'gezonder-in-werk-booking' ),
 		);
 	}
 
@@ -181,8 +187,35 @@ class Enrolment_Fields {
 				'input'    => false,
 				'list'     => true,
 				'search'   => true,
+				'retain'   => true,
+			),
+			'consent_cancellation' => array(
+				'label'    => __( 'Akkoord met de annuleringsvoorwaarden', 'gezonder-in-werk-booking' ),
+				'type'     => 'checkbox',
+				'required' => true,
+				'group'    => self::GROUP_CONSENT,
+				'storage'  => 'tinyint(1)',
+				'default'  => '0',
+				'retain'   => true,
+			),
+			'consent_privacy'      => array(
+				'label'    => __( 'Akkoord met de privacyverklaring', 'gezonder-in-werk-booking' ),
+				'type'     => 'checkbox',
+				'required' => true,
+				'group'    => self::GROUP_CONSENT,
+				'storage'  => 'tinyint(1)',
+				'default'  => '0',
+				'retain'   => true,
 			),
 		);
+	}
+
+	/** A value as shown to staff: checkboxes read Ja/Nee, everything else as stored. */
+	public static function display_value( array $field, string $value ): string {
+		if ( 'checkbox' !== $field['type'] ) {
+			return $value;
+		}
+		return '1' === $value ? __( 'Ja', 'gezonder-in-werk-booking' ) : __( 'Nee', 'gezonder-in-werk-booking' );
 	}
 
 	/** @return array<string,array<string,mixed>> Fields of one group, keyed by name. */
@@ -213,7 +246,8 @@ class Enrolment_Fields {
 	public static function column_sql(): array {
 		$columns = array();
 		foreach ( self::all() as $name => $field ) {
-			$columns[] = $name . ' ' . $field['storage'] . ( $field['required'] ? ' NOT NULL' : " NOT NULL DEFAULT ''" );
+			$default   = $field['default'] ?? ( $field['required'] ? null : '' );
+			$columns[] = $name . ' ' . $field['storage'] . ' NOT NULL' . ( null === $default ? '' : " DEFAULT '" . $default . "'" );
 		}
 		return $columns;
 	}

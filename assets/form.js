@@ -23,7 +23,12 @@
 		function restoreValues( values ) {
 			Object.keys( values || {} ).forEach( function ( name ) {
 				var input = form.elements[ name ];
-				if ( input && 'string' === typeof values[ name ] && 'hidden' !== input.type ) {
+				if ( ! input || 'string' !== typeof values[ name ] || 'hidden' === input.type ) {
+					return;
+				}
+				if ( 'checkbox' === input.type ) {
+					input.checked = '1' === values[ name ];
+				} else {
 					input.value = values[ name ];
 				}
 			} );

@@ -65,6 +65,15 @@ class Form_Shortcode {
 				<legend><?php esc_html_e( 'Factuurgegevens', 'gezonder-in-werk-booking' ); ?></legend>
 				<?php self::fields( Enrolment_Fields::in_group( Enrolment_Fields::GROUP_BILLING ) ); ?>
 			</fieldset>
+			<fieldset>
+				<legend><?php echo esc_html( Enrolment_Fields::groups()[ Enrolment_Fields::GROUP_CONSENT ] ); ?></legend>
+				<?php self::fields( Enrolment_Fields::in_group( Enrolment_Fields::GROUP_CONSENT ) ); ?>
+			</fieldset>
+			<input type="hidden" name="<?php echo esc_attr( Spam_Guard::NONCE_FIELD ); ?>" value="<?php echo esc_attr( Spam_Guard::nonce() ); ?>" />
+			<div class="gzw-form__trap" aria-hidden="true">
+				<label for="gzw-trap"><?php esc_html_e( 'Laat dit veld leeg', 'gezonder-in-werk-booking' ); ?></label>
+				<input type="text" id="gzw-trap" name="<?php echo esc_attr( Spam_Guard::HONEYPOT_FIELD ); ?>" value="" tabindex="-1" autocomplete="off" />
+			</div>
 			<button type="submit"><?php esc_html_e( 'Inschrijven', 'gezonder-in-werk-booking' ); ?></button>
 		</form>
 		<?php
@@ -79,6 +88,19 @@ class Form_Shortcode {
 			}
 			$id    = 'gzw-' . $name;
 			$label = $field['label'] . ( $field['required'] ? '' : ' ' . __( '(optioneel)', 'gezonder-in-werk-booking' ) );
+			if ( 'checkbox' === $field['type'] ) {
+				?>
+			<p class="gzw-form__field gzw-form__field--checkbox">
+				<label for="<?php echo esc_attr( $id ); ?>">
+					<input type="checkbox" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $name ); ?>" value="1" <?php echo $field['required'] ? 'required aria-required="true"' : ''; ?> />
+					<?php echo esc_html( $label ); ?>
+					<?php if ( $field['required'] ) : ?><span aria-hidden="true"> *</span><?php endif; ?>
+				</label>
+				<span class="gzw-form__error" id="<?php echo esc_attr( $id . '-error' ); ?>" data-gzw-error="<?php echo esc_attr( $name ); ?>"></span>
+			</p>
+				<?php
+				continue;
+			}
 			?>
 			<p class="gzw-form__field">
 				<label for="<?php echo esc_attr( $id ); ?>">

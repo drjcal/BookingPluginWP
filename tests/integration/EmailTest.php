@@ -54,9 +54,7 @@ class EmailTest extends WP_UnitTestCase {
 	}
 
 	private function submit( array $params ): WP_REST_Response {
-		$request = new WP_REST_Request( 'POST', '/gezonder-in-werk/v1/enrolments' );
-		$request->set_body_params( $params );
-		return rest_do_request( $request );
+		return Gzw_Submission::post( $params );
 	}
 
 	private function mails_to( string $to ): array {

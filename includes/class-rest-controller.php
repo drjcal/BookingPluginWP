@@ -23,6 +23,19 @@ class Rest_Controller {
 	}
 
 	public static function create( \WP_REST_Request $request ) {
+		$rejection = Spam_Guard::check( $request->get_params() );
+		if ( null !== $rejection ) {
+			return new \WP_REST_Response(
+				array(
+					'code'    => 'rate' === $rejection ? 'rate_limited' : 'spam_rejected',
+					'message' => 'rate' === $rejection
+						? __( 'Je hebt te veel pogingen gedaan. Probeer het later opnieuw.', 'gezonder-in-werk-booking' )
+						: __( 'Je inschrijving kon niet worden verwerkt. Laad de pagina opnieuw en probeer het nog eens.', 'gezonder-in-werk-booking' ),
+				),
+				'rate' === $rejection ? 429 : 403
+			);
+		}
+
 		$result = Enrolment_Validator::validate( $request->get_params() );
 
 		if ( $result['errors'] ) {
