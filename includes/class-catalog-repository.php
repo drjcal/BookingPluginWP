@@ -53,6 +53,115 @@ class Catalog_Repository {
 	}
 
 	/**
+	 * A cycle is a set of sessions sold together at one bundle price (integer cents excl. BTW).
+	 *
+	 * @param array $data title, price_cents, session_ids (int[]).
+	 * @param int   $id   Existing cycle id to update; 0 to create.
+	 * @return int Cycle id, 0 on failure.
+	 */
+	public static function save_cycle( array $data, int $id = 0 ): int {
+		global $wpdb;
+		$row = array(
+			'title'       => (string) ( $data['title'] ?? '' ),
+			'price_cents' => max( 0, (int) ( $data['price_cents'] ?? 0 ) ),
+		);
+		if ( $id ) {
+			if ( false === $wpdb->update( Installer::cycles_table(), $row, array( 'id' => $id ) ) ) {
+				return 0;
+			}
+		} elseif ( $wpdb->insert( Installer::cycles_table(), $row ) ) {
+			$id = (int) $wpdb->insert_id;
+		} else {
+			return 0;
+		}
+
+		$links = Installer::cycle_sessions_table();
+		$wpdb->delete( $links, array( 'cycle_id' => $id ) );
+		foreach ( array_unique( array_map( 'intval', (array) ( $data['session_ids'] ?? array() ) ) ) as $session_id ) {
+			if ( ! $wpdb->insert( $links, array( 'cycle_id' => $id, 'session_id' => $session_id ) ) ) {
+				return 0;
+			}
+		}
+		return $id;
+	}
+
+	/** Cycle with its sessions (each joined with its course), soonest first, under 'sessions'. */
+	public static function get_cycle( int $id ): ?array {
+		global $wpdb;
+		$table = Installer::cycles_table();
+		$cycle = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d", $id ), ARRAY_A );
+		if ( ! $cycle ) {
+			return null;
+		}
+		$s = Installer::sessions_table();
+		$c = Installer::courses_table();
+		$l = Installer::cycle_sessions_table();
+
+		$cycle['sessions'] = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT s.*, c.title, c.price_cents FROM {$l} l JOIN {$s} s ON s.id = l.session_id JOIN {$c} c ON c.id = s.course_id
+				WHERE l.cycle_id = %d ORDER BY s.session_date ASC, s.start_time ASC, s.id ASC",
+				$id
+			),
+			ARRAY_A
+		);
+		return $cycle;
+	}
+
+	public static function cycles(): array {
+		global $wpdb;
+		$table = Installer::cycles_table();
+		return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY title ASC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- no user input.
+	}
+
+	/** A cycle can be enrolled in when it has sessions and every one of them is bookable. */
+	public static function is_cycle_bookable( array $cycle ): bool {
+		return $cycle['sessions'] && ! array_filter( $cycle['sessions'], static fn( array $s ) => ! self::is_bookable( $s ) );
+	}
+
+	/** Cycles offered on the form (all sessions still bookable). */
+	public static function open_cycles(): array {
+		$open = array();
+		foreach ( self::cycles() as $row ) {
+			$cycle = self::get_cycle( (int) $row['id'] );
+			if ( $cycle && self::is_cycle_bookable( $cycle ) ) {
+				$open[] = $cycle;
+			}
+		}
+		return $open;
+	}
+
+	public static function delete_cycle( int $id ): bool {
+		global $wpdb;
+		$wpdb->delete( Installer::cycle_sessions_table(), array( 'cycle_id' => $id ) );
+		return false !== $wpdb->delete( Installer::cycles_table(), array( 'id' => $id ) );
+	}
+
+	public static function session_in_cycle( int $session_id ): bool {
+		global $wpdb;
+		$table = Installer::cycle_sessions_table();
+		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE session_id = %d", $session_id ) );
+	}
+
+	/**
+	 * Run $callback while holding the locks of several sessions, taken in id order so two
+	 * submissions over overlapping sessions cannot deadlock. Null when a lock is not obtained.
+	 *
+	 * @param int[] $session_ids
+	 * @return mixed
+	 */
+	public static function with_session_locks( array $session_ids, callable $callback ) {
+		$session_ids = array_values( array_unique( array_map( 'intval', $session_ids ) ) );
+		sort( $session_ids );
+		$run = $callback;
+		foreach ( array_reverse( $session_ids ) as $session_id ) {
+			$inner = $run;
+			$run   = static fn() => self::with_session_lock( $session_id, $inner );
+		}
+		return $run();
+	}
+
+	/**
 	 * Run $callback while holding a per-session lock (MySQL named lock; works under autocommit
 	 * and is re-entrant on one connection). Returns null without running when the lock is not obtained.
 	 *
@@ -144,10 +253,10 @@ class Catalog_Repository {
 		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE session_id = %d", $session_id ) );
 	}
 
-	/** Sessions with enrolments are kept: they carry personal data and price snapshots. */
+	/** Sessions with enrolments are kept (personal data, price snapshots); so are sessions in a cycle. */
 	public static function delete_session( int $id ): bool {
 		global $wpdb;
-		if ( self::session_has_enrolments( $id ) ) {
+		if ( self::session_has_enrolments( $id ) || self::session_in_cycle( $id ) ) {
 			return false;
 		}
 		return false !== $wpdb->delete( Installer::sessions_table(), array( 'id' => $id ) );
@@ -156,7 +265,7 @@ class Catalog_Repository {
 	public static function delete_course( int $id ): bool {
 		global $wpdb;
 		foreach ( self::sessions_for_course( $id ) as $session ) {
-			if ( self::session_has_enrolments( (int) $session['id'] ) ) {
+			if ( self::session_has_enrolments( (int) $session['id'] ) || self::session_in_cycle( (int) $session['id'] ) ) {
 				return false;
 			}
 		}
@@ -166,6 +275,16 @@ class Catalog_Repository {
 
 	public static function format_price( int $cents ): string {
 		return '€ ' . number_format( $cents / 100, 2, ',', '.' );
+	}
+
+	public static function format_cycle( array $cycle ): string {
+		return sprintf(
+			/* translators: 1: cycle title, 2: number of webinars, 3: bundle price */
+			_n( '%1$s – hele cyclus (%2$d webinar) – %3$s excl. BTW', '%1$s – hele cyclus (%2$d webinars) – %3$s excl. BTW', count( $cycle['sessions'] ), 'gezonder-in-werk-booking' ),
+			$cycle['title'],
+			count( $cycle['sessions'] ),
+			self::format_price( (int) $cycle['price_cents'] )
+		);
 	}
 
 	public static function format_session( array $session ): string {

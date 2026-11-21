@@ -37,12 +37,13 @@ class Rest_Controller {
 			);
 		}
 
-		$stored = Enrolment_Repository::enrol( $result['values'] );
+		$cycle  = $result['cycle'];
+		$stored = $cycle ? Enrolment_Repository::enrol_cycle( $result['values'], $cycle ) : Enrolment_Repository::enrol( $result['values'] );
 		if ( 'closed' === $stored['error'] ) {
-			return self::rejected( 'session_id', __( 'Inschrijven voor deze datum is gesloten.', 'gezonder-in-werk-booking' ), $result['values'] );
+			return self::rejected( 'session_id', $cycle ? __( 'Inschrijven voor (een deel van) deze cyclus is gesloten.', 'gezonder-in-werk-booking' ) : __( 'Inschrijven voor deze datum is gesloten.', 'gezonder-in-werk-booking' ), $result['values'] );
 		}
 		if ( 'duplicate' === $stored['error'] ) {
-			return self::rejected( 'email', __( 'Dit e-mailadres is al ingeschreven voor deze datum.', 'gezonder-in-werk-booking' ), $result['values'] );
+			return self::rejected( 'email', $cycle ? __( 'Dit e-mailadres is al ingeschreven voor een of meer webinars van deze cyclus.', 'gezonder-in-werk-booking' ) : __( 'Dit e-mailadres is al ingeschreven voor deze datum.', 'gezonder-in-werk-booking' ), $result['values'] );
 		}
 		if ( $stored['error'] ) {
 			return new \WP_Error(
@@ -53,6 +54,20 @@ class Rest_Controller {
 		}
 
 		$waitlisted = Installer::STATUS_WAITLISTED === $stored['status'];
+		if ( $cycle ) {
+			return new \WP_REST_Response(
+				array(
+					'id'              => $stored['id'],
+					'ids'             => $stored['ids'],
+					'group_reference' => $stored['group_reference'],
+					'status'          => $stored['status'],
+					'message'         => $waitlisted
+						? __( 'Bedankt! Voor een of meer webinars van de cyclus is het vol: daarvoor sta je op de wachtlijst en die inschrijving is nog niet bevestigd. De overige webinars zijn bevestigd. We nemen contact met je op als er een plek vrijkomt.', 'gezonder-in-werk-booking' )
+						: __( 'Bedankt! Je inschrijving voor de hele cyclus is bevestigd.', 'gezonder-in-werk-booking' ),
+				),
+				201
+			);
+		}
 		return new \WP_REST_Response(
 			array(
 				'id'      => $stored['id'],

@@ -481,8 +481,12 @@ class EnrolmentSubmissionTest extends WP_UnitTestCase {
 		global $wpdb;
 		$html    = do_shortcode( '[gezonder_inschrijfformulier]' );
 		$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$wpdb->prefix}gzw_enrolments", 0 );
-		foreach ( array_keys( \GezonderInWerk\Booking\Enrolment_Fields::all() ) as $name ) {
-			$this->assertStringContainsString( 'name="' . $name . '"', $html, "form: $name" );
+		foreach ( \GezonderInWerk\Booking\Enrolment_Fields::all() as $name => $field ) {
+			if ( \GezonderInWerk\Booking\Enrolment_Fields::is_input( $field ) ) {
+				$this->assertStringContainsString( 'name="' . $name . '"', $html, "form: $name" );
+			} else {
+				$this->assertStringNotContainsString( 'name="' . $name . '"', $html, "system field not on form: $name" );
+			}
 			$this->assertContains( $name, $columns, "column: $name" );
 		}
 	}

@@ -13,12 +13,14 @@ defined( 'ABSPATH' ) || exit;
  *  - autocomplete HTML autocomplete token.
  *  - required     Whether an empty value is rejected.
  *  - max          Maximum length in characters.
- *  - group        GROUP_PERSON or GROUP_BILLING (form fieldset).
+ *  - group        A key of groups() (form fieldset / admin detail heading).
  *  - storage      SQL column type; optional fields get NOT NULL DEFAULT ''.
  *  - normalise    (optional) callable applied to the value before validation.
  *  - pattern      (optional) regex the normalised value must match when given.
  *  - pattern_message (optional) error shown when the pattern fails.
  *  - inputmode / describedby (optional) form attributes.
+ *  - input        (optional) false for fields the system sets itself: never read from the
+ *                 request, never validated, never shown on the form.
  *  - list         (optional) true to show the field as a column in the admin list.
  *  - search       (optional) true to include the field in the admin list search.
  */
@@ -26,8 +28,28 @@ class Enrolment_Fields {
 
 	const GROUP_PERSON  = 'person';
 	const GROUP_BILLING = 'billing';
+	const GROUP_CYCLE   = 'cycle';
 
 	const MAX_LENGTH = 100;
+
+	/**
+	 * Field groups in display order: key => heading. The admin detail view renders every group
+	 * listed here, so a new group is one entry.
+	 *
+	 * @return array<string,string>
+	 */
+	public static function groups(): array {
+		return array(
+			self::GROUP_PERSON  => __( 'Deelnemer', 'gezonder-in-werk-booking' ),
+			self::GROUP_BILLING => __( 'Factuurgegevens', 'gezonder-in-werk-booking' ),
+			self::GROUP_CYCLE   => __( 'Cyclus', 'gezonder-in-werk-booking' ),
+		);
+	}
+
+	/** Whether the value comes from the public request (false: set by the system). */
+	public static function is_input( array $field ): bool {
+		return false !== ( $field['input'] ?? true );
+	}
 
 	/** @return array<string,array<string,mixed>> */
 	public static function all(): array {
@@ -149,6 +171,16 @@ class Enrolment_Fields {
 				'required'     => false,
 				'group'        => self::GROUP_BILLING,
 				'storage'      => 'varchar(50)',
+			),
+			'group_reference'   => array(
+				'label'    => __( 'Groepsreferentie (cyclus)', 'gezonder-in-werk-booking' ),
+				'type'     => 'text',
+				'required' => false,
+				'group'    => self::GROUP_CYCLE,
+				'storage'  => 'varchar(40)',
+				'input'    => false,
+				'list'     => true,
+				'search'   => true,
 			),
 		);
 	}

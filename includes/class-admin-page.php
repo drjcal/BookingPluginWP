@@ -40,14 +40,14 @@ class Admin_Page {
 		exit;
 	}
 
-	private static function guard( string $action ): void {
+	public static function guard( string $action ): void {
 		if ( ! current_user_can( self::CAP ) ) {
 			wp_die( esc_html__( 'Geen toegang.', 'gezonder-in-werk-booking' ), 403 );
 		}
 		check_admin_referer( $action );
 	}
 
-	private static function post( string $key ): string {
+	public static function post( string $key ): string {
 		return isset( $_POST[ $key ] ) ? trim( sanitize_text_field( wp_unslash( (string) $_POST[ $key ] ) ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification -- checked in guard().
 	}
 
@@ -120,7 +120,7 @@ class Admin_Page {
 		$messages = array(
 			'saved'           => array( 'success', __( 'Opgeslagen.', 'gezonder-in-werk-booking' ) ),
 			'deleted'         => array( 'success', __( 'Verwijderd.', 'gezonder-in-werk-booking' ) ),
-			'in_use'          => array( 'error', __( 'Kan niet worden verwijderd: er zijn inschrijvingen. Sluit de datum in plaats daarvan.', 'gezonder-in-werk-booking' ) ),
+			'in_use'          => array( 'error', __( 'Kan niet worden verwijderd: er zijn inschrijvingen of de datum hoort bij een cyclus. Sluit de datum in plaats daarvan.', 'gezonder-in-werk-booking' ) ),
 			'invalid_course'  => array( 'error', __( 'Vul een titel en een geldige prijs (bijv. 125,00) in.', 'gezonder-in-werk-booking' ) ),
 			'invalid_session' => array( 'error', __( 'Vul een geldige datum, begin- en eindtijd (begin vóór eind), locatie en capaciteit (leeg of een positief getal) in.', 'gezonder-in-werk-booking' ) ),
 			'error'           => array( 'error', __( 'Opslaan mislukt.', 'gezonder-in-werk-booking' ) ),
@@ -131,7 +131,7 @@ class Admin_Page {
 		}
 	}
 
-	private static function action_form( string $action, array $hidden, string $label, string $class = 'button' ): void {
+	public static function action_form( string $action, array $hidden, string $label, string $class = 'button' ): void {
 		echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '" style="display:inline">';
 		echo '<input type="hidden" name="action" value="' . esc_attr( $action ) . '" />';
 		foreach ( $hidden as $name => $value ) {

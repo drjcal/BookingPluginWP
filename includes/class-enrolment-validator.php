@@ -27,15 +27,24 @@ class Enrolment_Validator {
 		return null;
 	}
 
+	/** Form value of the select option that stands for a whole cycle: "cycle-<id>". */
+	public static function cycle_id_from( string $target ): int {
+		return preg_match( '/^cycle-(\d+)$/', $target, $m ) ? (int) $m[1] : 0;
+	}
+
 	/**
 	 * @param array $input Raw request values.
-	 * @return array{values: array<string,string>, errors: array<string,string>}
+	 * @return array{values: array<string,string>, errors: array<string,string>, cycle: ?array}
+	 *         cycle: the cycle (with its sessions) when the submission is for a whole cycle.
 	 */
 	public static function validate( array $input ): array {
 		$values = array();
 		$errors = array();
 
 		foreach ( Enrolment_Fields::all() as $name => $field ) {
+			if ( ! Enrolment_Fields::is_input( $field ) ) {
+				continue; // Set by the system, never taken from the request.
+			}
 			$raw   = $input[ $name ] ?? '';
 			$value = is_scalar( $raw ) ? trim( sanitize_text_field( (string) $raw ) ) : '';
 			if ( isset( $field['normalise'] ) ) {
@@ -51,9 +60,26 @@ class Enrolment_Validator {
 
 		$raw_session          = $input['session_id'] ?? '';
 		$values['session_id'] = is_scalar( $raw_session ) ? trim( (string) $raw_session ) : '';
-		$session              = ctype_digit( $values['session_id'] ) ? Catalog_Repository::get_session( (int) $values['session_id'] ) : null;
+		$cycle_id             = self::cycle_id_from( $values['session_id'] );
+		$cycle                = $cycle_id ? Catalog_Repository::get_cycle( $cycle_id ) : null;
+		$session              = ( ! $cycle_id && ctype_digit( $values['session_id'] ) ) ? Catalog_Repository::get_session( (int) $values['session_id'] ) : null;
 
-		if ( ! $session ) {
+		if ( $cycle_id ) {
+			if ( ! $cycle || ! $cycle['sessions'] ) {
+				$cycle                = null;
+				$errors['session_id'] = __( 'Kies een datum waarvoor je je wilt inschrijven.', 'gezonder-in-werk-booking' );
+			} elseif ( ! Catalog_Repository::is_cycle_bookable( $cycle ) ) {
+				$errors['session_id'] = __( 'Inschrijven voor (een deel van) deze cyclus is gesloten.', 'gezonder-in-werk-booking' );
+			} else {
+				$values['price_cents'] = (string) (int) $cycle['price_cents']; // Snapshot of the bundle price.
+				foreach ( $cycle['sessions'] as $cycle_session ) {
+					if ( ! isset( $errors['email'] ) && Enrolment_Repository::has_active( (int) $cycle_session['id'], $values['email'] ) ) {
+						$errors['email'] = __( 'Dit e-mailadres is al ingeschreven voor een of meer webinars van deze cyclus.', 'gezonder-in-werk-booking' );
+						break;
+					}
+				}
+			}
+		} elseif ( ! $session ) {
 			$errors['session_id'] = __( 'Kies een datum waarvoor je je wilt inschrijven.', 'gezonder-in-werk-booking' );
 		} elseif ( ! Catalog_Repository::is_bookable( $session ) ) {
 			$errors['session_id'] = __( 'Inschrijven voor deze datum is gesloten.', 'gezonder-in-werk-booking' );
@@ -67,6 +93,7 @@ class Enrolment_Validator {
 		return array(
 			'values' => $values,
 			'errors' => $errors,
+			'cycle'  => $errors ? null : $cycle,
 		);
 	}
 }

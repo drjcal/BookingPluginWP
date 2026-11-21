@@ -35,9 +35,21 @@ class Form_Shortcode {
 					<label for="gzw-session_id"><?php esc_html_e( 'Cursus en datum', 'gezonder-in-werk-booking' ); ?> <span aria-hidden="true">*</span></label>
 					<select id="gzw-session_id" name="session_id" required aria-required="true">
 						<option value=""><?php esc_html_e( 'Maak een keuze', 'gezonder-in-werk-booking' ); ?></option>
+						<?php $cycles = Catalog_Repository::open_cycles(); ?>
+						<?php if ( $cycles ) : ?>
+							<optgroup label="<?php esc_attr_e( 'Hele cyclus', 'gezonder-in-werk-booking' ); ?>">
+								<?php foreach ( $cycles as $cycle ) : ?>
+									<option value="<?php echo esc_attr( 'cycle-' . $cycle['id'] ); ?>"><?php echo esc_html( Catalog_Repository::format_cycle( $cycle ) ); ?></option>
+								<?php endforeach; ?>
+							</optgroup>
+							<optgroup label="<?php esc_attr_e( 'Losse webinars', 'gezonder-in-werk-booking' ); ?>">
+						<?php endif; ?>
 						<?php foreach ( Catalog_Repository::open_sessions() as $session ) : ?>
 							<option value="<?php echo esc_attr( $session['id'] ); ?>"><?php echo esc_html( Catalog_Repository::format_session( $session ) ); ?></option>
 						<?php endforeach; ?>
+						<?php if ( $cycles ) : ?>
+							</optgroup>
+						<?php endif; ?>
 					</select>
 					<span class="gzw-form__error" id="gzw-session_id-error" data-gzw-error="session_id"></span>
 				</p>
@@ -62,6 +74,9 @@ class Form_Shortcode {
 	/** @param array<string,array<string,mixed>> $fields Field definitions keyed by name. */
 	private static function fields( array $fields ): void {
 		foreach ( $fields as $name => $field ) {
+			if ( ! Enrolment_Fields::is_input( $field ) ) {
+				continue;
+			}
 			$id    = 'gzw-' . $name;
 			$label = $field['label'] . ( $field['required'] ? '' : ' ' . __( '(optioneel)', 'gezonder-in-werk-booking' ) );
 			?>
