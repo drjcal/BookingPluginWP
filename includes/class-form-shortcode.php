@@ -48,6 +48,19 @@ class Form_Shortcode {
 		<form class="gzw-form" method="post" novalidate data-gzw-form>
 			<div class="gzw-form__status" role="status" aria-live="polite" tabindex="-1" data-gzw-status></div>
 			<fieldset>
+				<legend><?php esc_html_e( 'Kies een datum', 'gezonder-in-werk-booking' ); ?></legend>
+				<p class="gzw-form__field">
+					<label for="gzw-session_id"><?php esc_html_e( 'Cursus en datum', 'gezonder-in-werk-booking' ); ?> <span aria-hidden="true">*</span></label>
+					<select id="gzw-session_id" name="session_id" required aria-required="true">
+						<option value=""><?php esc_html_e( 'Maak een keuze', 'gezonder-in-werk-booking' ); ?></option>
+						<?php foreach ( Catalog_Repository::open_sessions() as $session ) : ?>
+							<option value="<?php echo esc_attr( $session['id'] ); ?>"><?php echo esc_html( Catalog_Repository::format_session( $session ) ); ?></option>
+						<?php endforeach; ?>
+					</select>
+					<span class="gzw-form__error" id="gzw-session_id-error" data-gzw-error="session_id"></span>
+				</p>
+			</fieldset>
+			<fieldset>
 				<legend><?php esc_html_e( 'Jouw gegevens', 'gezonder-in-werk-booking' ); ?></legend>
 				<?php self::fields( $person ); ?>
 				<p class="gzw-form__hint" id="gzw-big-hint">

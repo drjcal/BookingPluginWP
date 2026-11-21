@@ -58,6 +58,21 @@ class Enrolment_Validator {
 			$errors['big_number'] = __( 'Een BIG-registratienummer bestaat uit 11 cijfers.', 'gezonder-in-werk-booking' );
 		}
 
+		$raw_session          = $input['session_id'] ?? '';
+		$values['session_id'] = is_scalar( $raw_session ) ? trim( (string) $raw_session ) : '';
+		$session              = ctype_digit( $values['session_id'] ) ? Catalog_Repository::get_session( (int) $values['session_id'] ) : null;
+
+		if ( ! $session ) {
+			$errors['session_id'] = __( 'Kies een datum waarvoor je je wilt inschrijven.', 'gezonder-in-werk-booking' );
+		} elseif ( ! (int) $session['is_open'] ) {
+			$errors['session_id'] = __( 'Inschrijven voor deze datum is gesloten.', 'gezonder-in-werk-booking' );
+		} else {
+			$values['price_cents'] = (string) (int) $session['price_cents']; // Snapshot.
+			if ( ! isset( $errors['email'] ) && Enrolment_Repository::has_active( (int) $session['id'], $values['email'] ) ) {
+				$errors['email'] = __( 'Dit e-mailadres is al ingeschreven voor deze datum.', 'gezonder-in-werk-booking' );
+			}
+		}
+
 		return array(
 			'values' => $values,
 			'errors' => $errors,

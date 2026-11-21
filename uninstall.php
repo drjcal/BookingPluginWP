@@ -11,6 +11,8 @@ global $wpdb;
 
 if ( get_option( 'gzw_booking_remove_data_on_uninstall' ) ) {
 	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}gzw_enrolments" ); // phpcs:ignore WordPress.DB.PreparedSQL
+	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}gzw_sessions" ); // phpcs:ignore WordPress.DB.PreparedSQL
+	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}gzw_courses" ); // phpcs:ignore WordPress.DB.PreparedSQL
 	delete_option( 'gzw_booking_db_version' );
 	delete_option( 'gzw_booking_remove_data_on_uninstall' );
 }
