@@ -90,7 +90,8 @@ class Enrolments_Admin {
 		echo '</div>';
 	}
 
-	private static function filters(): array {
+	/** Active list filters from the request; shared with the CSV export. */
+	public static function filters(): array {
 		// phpcs:disable WordPress.Security.NonceVerification -- read-only filters.
 		return array(
 			'course'  => isset( $_GET['course'] ) ? absint( $_GET['course'] ) : 0,
@@ -107,6 +108,7 @@ class Enrolments_Admin {
 		$result  = Enrolment_Repository::query( $filters, $page, self::PER_PAGE );
 
 		self::render_filter_form( $filters );
+		echo '<p><a class="button" href="' . esc_url( Enrolments_Export::url( $filters ) ) . '">' . esc_html__( 'Exporteer naar CSV', 'gezonder-in-werk-booking' ) . '</a></p>';
 
 		$columns = Enrolment_Fields::list_fields();
 		echo '<table class="widefat striped"><thead><tr>';
