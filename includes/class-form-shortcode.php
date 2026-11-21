@@ -25,24 +25,6 @@ class Form_Shortcode {
 			array( 'endpoint' => esc_url_raw( rest_url( Rest_Controller::NAMESPACE . '/enrolments' ) ) )
 		);
 
-		$person  = array(
-			'first_name' => array( __( 'Voornaam', 'gezonder-in-werk-booking' ), 'text', 'given-name', true ),
-			'last_name'  => array( __( 'Achternaam', 'gezonder-in-werk-booking' ), 'text', 'family-name', true ),
-			'email'      => array( __( 'E-mailadres', 'gezonder-in-werk-booking' ), 'email', 'email', true ),
-			'employer'   => array( __( 'Werkzaam bij', 'gezonder-in-werk-booking' ), 'text', 'organization', true ),
-			'big_number' => array( __( 'BIG-registratienummer (optioneel)', 'gezonder-in-werk-booking' ), 'text', 'off', false ),
-		);
-		$billing = array(
-			'invoice_name'      => array( __( 'Factuurnaam', 'gezonder-in-werk-booking' ), 'text', 'organization', true ),
-			'invoice_street'    => array( __( 'Straat en huisnummer', 'gezonder-in-werk-booking' ), 'text', 'street-address', true ),
-			'invoice_postcode'  => array( __( 'Postcode', 'gezonder-in-werk-booking' ), 'text', 'postal-code', true ),
-			'invoice_city'      => array( __( 'Plaats', 'gezonder-in-werk-booking' ), 'text', 'address-level2', true ),
-			'invoice_email'     => array( __( 'Factuur e-mailadres (optioneel)', 'gezonder-in-werk-booking' ), 'email', 'off', false ),
-			'invoice_reference' => array( __( 'PO- of referentienummer (optioneel)', 'gezonder-in-werk-booking' ), 'text', 'off', false ),
-			'invoice_kvk'       => array( __( 'KvK-nummer (optioneel)', 'gezonder-in-werk-booking' ), 'text', 'off', false ),
-			'invoice_btw'       => array( __( 'BTW-nummer (optioneel)', 'gezonder-in-werk-booking' ), 'text', 'off', false ),
-		);
-
 		ob_start();
 		?>
 		<form class="gzw-form" method="post" novalidate data-gzw-form>
@@ -62,14 +44,14 @@ class Form_Shortcode {
 			</fieldset>
 			<fieldset>
 				<legend><?php esc_html_e( 'Jouw gegevens', 'gezonder-in-werk-booking' ); ?></legend>
-				<?php self::fields( $person ); ?>
+				<?php self::fields( Enrolment_Fields::in_group( Enrolment_Fields::GROUP_PERSON ) ); ?>
 				<p class="gzw-form__hint" id="gzw-big-hint">
 					<?php esc_html_e( 'We gebruiken je BIG-nummer alleen om accreditatiepunten voor je te registreren.', 'gezonder-in-werk-booking' ); ?>
 				</p>
 			</fieldset>
 			<fieldset>
 				<legend><?php esc_html_e( 'Factuurgegevens', 'gezonder-in-werk-booking' ); ?></legend>
-				<?php self::fields( $billing ); ?>
+				<?php self::fields( Enrolment_Fields::in_group( Enrolment_Fields::GROUP_BILLING ) ); ?>
 			</fieldset>
 			<button type="submit"><?php esc_html_e( 'Inschrijven', 'gezonder-in-werk-booking' ); ?></button>
 		</form>
@@ -77,22 +59,25 @@ class Form_Shortcode {
 		return (string) ob_get_clean();
 	}
 
+	/** @param array<string,array<string,mixed>> $fields Field definitions keyed by name. */
 	private static function fields( array $fields ): void {
-		foreach ( $fields as $name => list( $label, $type, $autocomplete, $required ) ) {
-			$id = 'gzw-' . $name;
+		foreach ( $fields as $name => $field ) {
+			$id    = 'gzw-' . $name;
+			$label = $field['label'] . ( $field['required'] ? '' : ' ' . __( '(optioneel)', 'gezonder-in-werk-booking' ) );
 			?>
 			<p class="gzw-form__field">
 				<label for="<?php echo esc_attr( $id ); ?>">
 					<?php echo esc_html( $label ); ?>
-					<?php if ( $required ) : ?><span aria-hidden="true"> *</span><?php endif; ?>
+					<?php if ( $field['required'] ) : ?><span aria-hidden="true"> *</span><?php endif; ?>
 				</label>
 				<input
-					type="<?php echo esc_attr( $type ); ?>"
+					type="<?php echo esc_attr( $field['type'] ); ?>"
 					id="<?php echo esc_attr( $id ); ?>"
 					name="<?php echo esc_attr( $name ); ?>"
-					autocomplete="<?php echo esc_attr( $autocomplete ); ?>"
-					<?php echo $required ? 'required aria-required="true"' : ''; ?>
-					<?php echo 'big_number' === $name ? 'inputmode="numeric" maxlength="11" aria-describedby="gzw-big-hint"' : ''; ?>
+					autocomplete="<?php echo esc_attr( $field['autocomplete'] ); ?>"
+					<?php echo $field['required'] ? 'required aria-required="true"' : ''; ?>
+					<?php echo isset( $field['inputmode'] ) ? 'inputmode="' . esc_attr( $field['inputmode'] ) . '"' : ''; ?>
+					<?php echo isset( $field['describedby'] ) ? 'aria-describedby="' . esc_attr( $field['describedby'] ) . '"' : ''; ?>
 				/>
 				<span class="gzw-form__error" id="<?php echo esc_attr( $id . '-error' ); ?>" data-gzw-error="<?php echo esc_attr( $name ); ?>"></span>
 			</p>

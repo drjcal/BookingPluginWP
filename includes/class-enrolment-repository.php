@@ -13,7 +13,7 @@ class Enrolment_Repository {
 		global $wpdb;
 
 		$row = $values + array(
-			'status'     => 'confirmed',
+			'status'     => Installer::STATUS_DEFAULT,
 			'created_at' => current_time( 'mysql', true ),
 		);
 
@@ -30,9 +30,10 @@ class Enrolment_Repository {
 		$table = Installer::table_name();
 		return (bool) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(*) FROM {$table} WHERE session_id = %d AND email = %s AND status <> 'cancelled'",
+				"SELECT COUNT(*) FROM {$table} WHERE session_id = %d AND email = %s AND status <> %s",
 				$session_id,
-				$email
+				$email,
+				Installer::STATUS_CANCELLED
 			)
 		);
 	}

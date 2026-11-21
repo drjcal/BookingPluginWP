@@ -69,7 +69,8 @@ class Catalog_Repository {
 	public static function courses(): array {
 		global $wpdb;
 		$table = Installer::courses_table();
-		return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY title ASC", ARRAY_A );
+		// No user input: the table name comes from Installer, the rest is static.
+		return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY title ASC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	public static function sessions_for_course( int $course_id ): array {
