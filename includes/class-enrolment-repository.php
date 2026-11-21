@@ -6,23 +6,76 @@ defined( 'ABSPATH' ) || exit;
 class Enrolment_Repository {
 
 	/**
+	 * Raw insert; the status defaults to confirmed. Use enrol() for public submissions.
+	 *
 	 * @param array<string,string> $values Validated values.
-	 * @return int New enrolment id.
+	 * @return int New enrolment id, 0 on failure.
 	 */
 	public static function insert( array $values ): int {
 		global $wpdb;
 
 		$row = $values + array(
-			'status'        => Installer::STATUS_DEFAULT,
+			'status'        => Installer::STATUS_CONFIRMED,
 			'internal_note' => '',
 			'created_at'    => current_time( 'mysql', true ),
 		);
+		$row['active_session_id'] = self::active_session_id( (string) $row['status'], (int) ( $row['session_id'] ?? 0 ) );
 
+		$wpdb->suppress_errors( true );
 		$ok = $wpdb->insert( Installer::table_name(), $row );
+		$wpdb->suppress_errors( false );
 		if ( false === $ok ) {
 			return 0;
 		}
 		return (int) $wpdb->insert_id;
+	}
+
+	/** Cancelled enrolments are not "active": they hold no seat and release the e-mail address. */
+	private static function active_session_id( string $status, int $session_id ): ?int {
+		return Installer::STATUS_CANCELLED === $status ? null : $session_id;
+	}
+
+	/**
+	 * Store a public submission. Under the session lock: re-check the session is still bookable,
+	 * confirm when a seat is free (otherwise waitlist) and insert, so concurrent submissions cannot
+	 * exceed capacity and a closing session cannot receive a confirmed enrolment. The unique key
+	 * on (active_session_id, email) is the backstop for duplicates.
+	 *
+	 * @param array<string,string> $values Validated values incl. session_id.
+	 * @return array{id:int,status:string,error:?string} error: closed | duplicate | storage.
+	 */
+	public static function enrol( array $values ): array {
+		$session_id = (int) ( $values['session_id'] ?? 0 );
+		$result     = Catalog_Repository::with_session_lock(
+			$session_id,
+			static function () use ( $values, $session_id ): array {
+				$session = Catalog_Repository::get_session( $session_id );
+				if ( ! $session || ! Catalog_Repository::is_bookable( $session ) ) {
+					return array( 'id' => 0, 'status' => '', 'error' => 'closed' );
+				}
+				$status = self::has_free_seat( $session ) ? Installer::STATUS_CONFIRMED : Installer::STATUS_WAITLISTED;
+				$id     = self::insert( array( 'status' => $status ) + $values );
+				if ( $id ) {
+					return array( 'id' => $id, 'status' => $status, 'error' => null );
+				}
+				global $wpdb;
+				return array( 'id' => 0, 'status' => '', 'error' => false !== stripos( (string) $wpdb->last_error, 'duplicate entry' ) ? 'duplicate' : 'storage' );
+			}
+		);
+		return $result ?? array( 'id' => 0, 'status' => '', 'error' => 'storage' );
+	}
+
+	/** @param array<string,mixed> $session Session row incl. id and capacity. */
+	private static function has_free_seat( array $session ): bool {
+		if ( null === $session['capacity'] ) {
+			return true;
+		}
+		global $wpdb;
+		$table     = Installer::table_name();
+		$confirmed = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE session_id = %d AND status = %s", (int) $session['id'], Installer::STATUS_CONFIRMED )
+		);
+		return $confirmed < (int) $session['capacity'];
 	}
 
 	/** An enrolment is active unless cancelled. */
@@ -39,7 +92,7 @@ class Enrolment_Repository {
 		);
 	}
 
-	const STATUSES = array( Installer::STATUS_CONFIRMED, Installer::STATUS_CANCELLED );
+	const STATUSES = array( Installer::STATUS_CONFIRMED, Installer::STATUS_WAITLISTED, Installer::STATUS_CANCELLED );
 
 	public static function get( int $id ): ?array {
 		return self::select_with_session( 'WHERE e.id = %d', array( $id ), '' )[0] ?? null;
@@ -125,16 +178,48 @@ class Enrolment_Repository {
 		return (string) $wpdb->get_var( $args ? $wpdb->prepare( $sql, $args ) : $sql ); // phpcs:ignore WordPress.DB.PreparedSQL
 	}
 
-	/** Staff edits: status (ignored when unknown), invoiced flag and internal note. */
-	public static function update_admin( int $id, string $status, bool $invoiced, string $note ): bool {
+	/**
+	 * Staff edits: status (ignored when unknown), invoiced flag and internal note.
+	 * Moving an enrolment to confirmed needs a free seat.
+	 *
+	 * @return string ok | full (no free seat) | error
+	 */
+	public static function update_admin( int $id, string $status, bool $invoiced, string $note ): string {
 		global $wpdb;
+		$current = self::get( $id );
+		if ( ! $current ) {
+			return 'error';
+		}
 		$row = array(
 			'invoiced'      => $invoiced ? 1 : 0,
 			'internal_note' => $note,
 		);
 		if ( in_array( $status, self::STATUSES, true ) ) {
-			$row['status'] = $status;
+			$row['status']            = $status;
+			$row['active_session_id'] = self::active_session_id( $status, (int) $current['session_id'] );
 		}
-		return false !== $wpdb->update( Installer::table_name(), $row, array( 'id' => $id ) );
+		$write = static function () use ( $wpdb, $row, $id, $current, $status ): string {
+			if ( Installer::STATUS_CONFIRMED === $status && Installer::STATUS_CONFIRMED !== $current['status'] ) {
+				$session = Catalog_Repository::get_session( (int) $current['session_id'] );
+				if ( $session && ! self::has_free_seat( $session ) ) {
+					return 'full';
+				}
+			}
+			$wpdb->suppress_errors( true );
+			$ok = $wpdb->update( Installer::table_name(), $row, array( 'id' => $id ) );
+			$wpdb->suppress_errors( false );
+			return false === $ok ? 'error' : 'ok';
+		};
+		$result = Catalog_Repository::with_session_lock( (int) $current['session_id'], $write );
+		return $result ?? 'error';
+	}
+
+	/** Staff promote a waitlisted enrolment to confirmed, keeping every other field. */
+	public static function promote( int $id ): string {
+		$row = self::get( $id );
+		if ( ! $row || Installer::STATUS_WAITLISTED !== $row['status'] ) {
+			return 'error';
+		}
+		return self::update_admin( $id, Installer::STATUS_CONFIRMED, (bool) (int) $row['invoiced'], (string) $row['internal_note'] );
 	}
 }

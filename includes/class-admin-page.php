@@ -85,11 +85,13 @@ class Admin_Page {
 		$start     = self::post( 'start_time' );
 		$end       = self::post( 'end_time' );
 		$location  = self::post( 'location' );
+		$capacity  = self::post( 'capacity' ); // Empty = unlimited.
 
 		$valid = $course_id && Catalog_Repository::get_course( $course_id )
 			&& preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) && checkdate( (int) substr( $date, 5, 2 ), (int) substr( $date, 8, 2 ), (int) substr( $date, 0, 4 ) )
 			&& preg_match( '/^([01]\d|2[0-3]):[0-5]\d$/', $start ) && preg_match( '/^([01]\d|2[0-3]):[0-5]\d$/', $end )
-			&& $start < $end && '' !== $location;
+			&& $start < $end && '' !== $location
+			&& ( '' === $capacity || ( ctype_digit( $capacity ) && (int) $capacity > 0 && strlen( $capacity ) < 8 ) );
 		if ( ! $valid ) {
 			self::back( $course_id, 'invalid_session' );
 		}
@@ -101,6 +103,7 @@ class Admin_Page {
 				'end_time'     => $end,
 				'location'     => $location,
 				'is_open'      => '1' === self::post( 'is_open' ),
+				'capacity'     => '' === $capacity ? null : (int) $capacity,
 			),
 			$id
 		);
@@ -119,7 +122,7 @@ class Admin_Page {
 			'deleted'         => array( 'success', __( 'Verwijderd.', 'gezonder-in-werk-booking' ) ),
 			'in_use'          => array( 'error', __( 'Kan niet worden verwijderd: er zijn inschrijvingen. Sluit de datum in plaats daarvan.', 'gezonder-in-werk-booking' ) ),
 			'invalid_course'  => array( 'error', __( 'Vul een titel en een geldige prijs (bijv. 125,00) in.', 'gezonder-in-werk-booking' ) ),
-			'invalid_session' => array( 'error', __( 'Vul een geldige datum, begin- en eindtijd (begin vóór eind) en locatie in.', 'gezonder-in-werk-booking' ) ),
+			'invalid_session' => array( 'error', __( 'Vul een geldige datum, begin- en eindtijd (begin vóór eind), locatie en capaciteit (leeg of een positief getal) in.', 'gezonder-in-werk-booking' ) ),
 			'error'           => array( 'error', __( 'Opslaan mislukt.', 'gezonder-in-werk-booking' ) ),
 		);
 		$key = isset( $_GET['gzw_notice'] ) ? sanitize_key( wp_unslash( $_GET['gzw_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
@@ -200,7 +203,7 @@ class Admin_Page {
 	}
 
 	private static function session_fields( int $course_id, array $s ): void {
-		$s += array( 'id' => 0, 'session_date' => '', 'start_time' => '', 'end_time' => '', 'location' => '', 'is_open' => 1 );
+		$s += array( 'id' => 0, 'session_date' => '', 'start_time' => '', 'end_time' => '', 'location' => '', 'is_open' => 1, 'capacity' => null );
 		$p  = 'gzw-s' . $s['id'] . '-';
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:8px">
@@ -212,6 +215,7 @@ class Admin_Page {
 			<label><?php esc_html_e( 'Van', 'gezonder-in-werk-booking' ); ?><br /><input type="time" name="start_time" required value="<?php echo esc_attr( substr( (string) $s['start_time'], 0, 5 ) ); ?>" /></label>
 			<label><?php esc_html_e( 'Tot', 'gezonder-in-werk-booking' ); ?><br /><input type="time" name="end_time" required value="<?php echo esc_attr( substr( (string) $s['end_time'], 0, 5 ) ); ?>" /></label>
 			<label><?php esc_html_e( 'Locatie', 'gezonder-in-werk-booking' ); ?><br /><input name="location" required value="<?php echo esc_attr( $s['location'] ); ?>" /></label>
+			<label><?php esc_html_e( 'Capaciteit (leeg = onbeperkt)', 'gezonder-in-werk-booking' ); ?><br /><input type="number" name="capacity" min="1" step="1" value="<?php echo esc_attr( (string) $s['capacity'] ); ?>" /></label>
 			<label><input type="checkbox" name="is_open" value="1" <?php checked( (int) $s['is_open'], 1 ); ?> /> <?php esc_html_e( 'Open voor inschrijving', 'gezonder-in-werk-booking' ); ?></label>
 			<button type="submit" class="button button-primary"><?php echo $s['id'] ? esc_html__( 'Opslaan', 'gezonder-in-werk-booking' ) : esc_html__( 'Datum toevoegen', 'gezonder-in-werk-booking' ); ?></button>
 		</form>

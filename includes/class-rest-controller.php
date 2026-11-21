@@ -37,8 +37,14 @@ class Rest_Controller {
 			);
 		}
 
-		$id = Enrolment_Repository::insert( $result['values'] );
-		if ( ! $id ) {
+		$stored = Enrolment_Repository::enrol( $result['values'] );
+		if ( 'closed' === $stored['error'] ) {
+			return self::rejected( 'session_id', __( 'Inschrijven voor deze datum is gesloten.', 'gezonder-in-werk-booking' ), $result['values'] );
+		}
+		if ( 'duplicate' === $stored['error'] ) {
+			return self::rejected( 'email', __( 'Dit e-mailadres is al ingeschreven voor deze datum.', 'gezonder-in-werk-booking' ), $result['values'] );
+		}
+		if ( $stored['error'] ) {
 			return new \WP_Error(
 				'storage_failed',
 				__( 'Je inschrijving kon niet worden opgeslagen. Probeer het later opnieuw.', 'gezonder-in-werk-booking' ),
@@ -46,12 +52,28 @@ class Rest_Controller {
 			);
 		}
 
+		$waitlisted = Installer::STATUS_WAITLISTED === $stored['status'];
 		return new \WP_REST_Response(
 			array(
-				'id'      => $id,
-				'message' => __( 'Bedankt! Je inschrijving is ontvangen.', 'gezonder-in-werk-booking' ),
+				'id'      => $stored['id'],
+				'status'  => $stored['status'],
+				'message' => $waitlisted
+					? __( 'Bedankt! Deze datum is vol: je staat op de wachtlijst en je inschrijving is nog niet bevestigd. We nemen contact met je op als er een plek vrijkomt.', 'gezonder-in-werk-booking' )
+					: __( 'Bedankt! Je inschrijving is bevestigd.', 'gezonder-in-werk-booking' ),
 			),
 			201
+		);
+	}
+
+	private static function rejected( string $field, string $message, array $values ): \WP_REST_Response {
+		return new \WP_REST_Response(
+			array(
+				'code'    => 'validation_failed',
+				'message' => __( 'Controleer de gemarkeerde velden.', 'gezonder-in-werk-booking' ),
+				'errors'  => array( $field => $message ),
+				'values'  => $values,
+			),
+			422
 		);
 	}
 }

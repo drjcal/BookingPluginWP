@@ -29,9 +29,13 @@ class Enrolments_Admin {
 	}
 
 	public static function status_label( string $status ): string {
-		return Installer::STATUS_CANCELLED === $status
-			? __( 'Geannuleerd', 'gezonder-in-werk-booking' )
-			: __( 'Bevestigd', 'gezonder-in-werk-booking' );
+		if ( Installer::STATUS_CANCELLED === $status ) {
+			return __( 'Geannuleerd', 'gezonder-in-werk-booking' );
+		}
+		if ( Installer::STATUS_WAITLISTED === $status ) {
+			return __( 'Wachtlijst', 'gezonder-in-werk-booking' );
+		}
+		return __( 'Bevestigd', 'gezonder-in-werk-booking' );
 	}
 
 	/** "Ingeschreven op" cell: enrolment timestamp in site time. */
@@ -60,14 +64,30 @@ class Enrolments_Admin {
 		$flag   = isset( $_POST['invoiced'] ) && '1' === $_POST['invoiced'];
 		// phpcs:enable
 
-		$ok = $id && in_array( $status, Enrolment_Repository::STATUSES, true ) && Enrolment_Repository::get( $id )
-			&& Enrolment_Repository::update_admin( $id, $status, $flag, $note );
+		$result = 'error';
+		if ( $id && in_array( $status, Enrolment_Repository::STATUSES, true ) ) {
+			$result = Enrolment_Repository::update_admin( $id, $status, $flag, $note );
+		}
+		self::back_to_detail( $id, $result );
+	}
+
+	public static function handle_promote(): void {
+		if ( ! current_user_can( self::CAP ) ) {
+			self::deny();
+		}
+		check_admin_referer( 'gzw_promote_enrolment' );
+		$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification -- checked above.
+		self::back_to_detail( $id, Enrolment_Repository::promote( $id ) );
+	}
+
+	/** @param string $result ok | full | error */
+	private static function back_to_detail( int $id, string $result ): void {
 		wp_safe_redirect(
 			add_query_arg(
 				array(
 					'page'       => self::SLUG,
 					'enrolment'  => $id,
-					'gzw_notice' => $ok ? 'saved' : 'error',
+					'gzw_notice' => 'ok' === $result ? 'saved' : $result,
 				),
 				admin_url( 'admin.php' )
 			)
@@ -83,6 +103,8 @@ class Enrolments_Admin {
 		$notice = isset( $_GET['gzw_notice'] ) ? sanitize_key( wp_unslash( $_GET['gzw_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
 		if ( 'saved' === $notice ) {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Opgeslagen.', 'gezonder-in-werk-booking' ) . '</p></div>';
+		} elseif ( 'full' === $notice ) {
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'Geen vrije plek: annuleer eerst een bevestigde inschrijving of verhoog de capaciteit.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		} elseif ( 'error' === $notice ) {
 			echo '<div class="notice notice-error"><p>' . esc_html__( 'Opslaan mislukt.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		}
@@ -209,6 +231,14 @@ class Enrolments_Admin {
 		echo '</tbody></table>';
 		?>
 		<h2><?php esc_html_e( 'Beheer', 'gezonder-in-werk-booking' ); ?></h2>
+		<?php if ( Installer::STATUS_WAITLISTED === $row['status'] ) : ?>
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<input type="hidden" name="action" value="gzw_promote_enrolment" />
+				<input type="hidden" name="id" value="<?php echo esc_attr( (string) $id ); ?>" />
+				<?php wp_nonce_field( 'gzw_promote_enrolment' ); ?>
+				<?php submit_button( __( 'Bevestigen (van wachtlijst)', 'gezonder-in-werk-booking' ), 'secondary' ); ?>
+			</form>
+		<?php endif; ?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 			<input type="hidden" name="action" value="gzw_update_enrolment" />
 			<input type="hidden" name="id" value="<?php echo esc_attr( (string) $id ); ?>" />

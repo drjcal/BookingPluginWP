@@ -5,15 +5,14 @@ defined( 'ABSPATH' ) || exit;
 
 class Installer {
 
-	const DB_VERSION = '3';
+	const DB_VERSION = '4';
 
 	const OPTION_DB_VERSION          = 'gzw_booking_db_version';
 	const OPTION_REMOVE_ON_UNINSTALL = 'gzw_booking_remove_data_on_uninstall';
 
 	const STATUS_CONFIRMED = 'confirmed';
-	const STATUS_CANCELLED = 'cancelled';
-	/** Status given to a new enrolment. */
-	const STATUS_DEFAULT = self::STATUS_CONFIRMED;
+	const STATUS_WAITLISTED = 'waitlisted';
+	const STATUS_CANCELLED  = 'cancelled';
 
 	/** Capability to view and manage enrolments; granted to administrators. */
 	const CAP_MANAGE_ENROLMENTS = 'gzw_manage_enrolments';
@@ -46,7 +45,8 @@ class Installer {
 	}
 
 	public static function maybe_upgrade(): void {
-		if ( get_option( self::OPTION_DB_VERSION ) !== self::DB_VERSION ) {
+		$installed = get_option( self::OPTION_DB_VERSION );
+		if ( $installed !== self::DB_VERSION ) {
 			self::create_tables();
 		}
 		self::grant_capabilities();
@@ -62,15 +62,36 @@ class Installer {
 		delete_option( self::OPTION_REMOVE_ON_UNINSTALL );
 	}
 
+	/**
+	 * The unique key on (active_session_id, email) enforces one active enrolment per
+	 * e-mail address and session; cancelled rows have NULL and so never collide.
+	 * Existing rows get it set once, keeping the oldest of any pre-existing duplicates protected.
+	 */
+	private static function backfill_active_session( string $installed ): void {
+		global $wpdb;
+		if ( '' === $installed || version_compare( $installed, '4', '>=' ) ) {
+			return;
+		}
+		$t = self::table_name();
+		$wpdb->query( // phpcs:ignore WordPress.DB.PreparedSQL -- table from this class.
+			$wpdb->prepare(
+				"UPDATE {$t} e JOIN (SELECT MIN(id) AS id FROM {$t} WHERE status <> %s GROUP BY session_id, email) k ON k.id = e.id
+				SET e.active_session_id = e.session_id",
+				self::STATUS_CANCELLED
+			)
+		);
+	}
+
 	private static function create_tables(): void {
 		global $wpdb;
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-		$table   = self::table_name();
+		$installed = (string) get_option( self::OPTION_DB_VERSION, '' );
+		$table     = self::table_name();
 		$charset = $wpdb->get_charset_collate();
 
 		$field_columns = implode( ",\n\t\t\t\t", Enrolment_Fields::column_sql() ) . ',';
-		$status        = self::STATUS_DEFAULT;
+		$status        = self::STATUS_CONFIRMED;
 		$courses       = self::courses_table();
 		$sessions      = self::sessions_table();
 
@@ -94,6 +115,7 @@ class Installer {
 				end_time time NOT NULL,
 				location varchar(190) NOT NULL,
 				is_open tinyint(1) NOT NULL DEFAULT 1,
+				capacity int(10) unsigned DEFAULT NULL,
 				PRIMARY KEY  (id),
 				KEY course_id (course_id)
 			) {$charset};"
@@ -109,13 +131,17 @@ class Installer {
 				invoiced tinyint(1) NOT NULL DEFAULT 0,
 				internal_note text NOT NULL,
 				created_at datetime NOT NULL,
+				active_session_id bigint(20) unsigned DEFAULT NULL,
 				PRIMARY KEY  (id),
+				UNIQUE KEY active_email (active_session_id,email),
 				KEY email (email),
 				KEY session_id (session_id),
 				KEY status (status)
 			) {$charset};"
 		);
 
+		// Before the version is stored, so a failed backfill is retried on the next load.
+		self::backfill_active_session( $installed );
 		self::grant_capabilities();
 		update_option( self::OPTION_DB_VERSION, self::DB_VERSION );
 	}
