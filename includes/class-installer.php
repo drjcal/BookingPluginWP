@@ -70,6 +70,7 @@ class Installer {
 		}
 		delete_option( self::OPTION_DB_VERSION );
 		delete_option( self::OPTION_REMOVE_ON_UNINSTALL );
+		delete_option( Settings_Page::OPTION_NOTIFICATION_EMAIL );
 	}
 
 	/**

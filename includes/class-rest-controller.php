@@ -54,6 +54,9 @@ class Rest_Controller {
 		}
 
 		$waitlisted = Installer::STATUS_WAITLISTED === $stored['status'];
+		$message    = Enrolment_Messages::outcome( (bool) $cycle, $waitlisted );
+		Enrolment_Mailer::send_for_submission( $result['values'], $cycle ? $stored['ids'] : array( $stored['id'] ), $cycle );
+
 		if ( $cycle ) {
 			return new \WP_REST_Response(
 				array(
@@ -61,9 +64,7 @@ class Rest_Controller {
 					'ids'             => $stored['ids'],
 					'group_reference' => $stored['group_reference'],
 					'status'          => $stored['status'],
-					'message'         => $waitlisted
-						? __( 'Bedankt! Voor een of meer webinars van de cyclus is het vol: daarvoor sta je op de wachtlijst en die inschrijving is nog niet bevestigd. De overige webinars zijn bevestigd. We nemen contact met je op als er een plek vrijkomt.', 'gezonder-in-werk-booking' )
-						: __( 'Bedankt! Je inschrijving voor de hele cyclus is bevestigd.', 'gezonder-in-werk-booking' ),
+					'message'         => $message,
 				),
 				201
 			);
@@ -72,9 +73,7 @@ class Rest_Controller {
 			array(
 				'id'      => $stored['id'],
 				'status'  => $stored['status'],
-				'message' => $waitlisted
-					? __( 'Bedankt! Deze datum is vol: je staat op de wachtlijst en je inschrijving is nog niet bevestigd. We nemen contact met je op als er een plek vrijkomt.', 'gezonder-in-werk-booking' )
-					: __( 'Bedankt! Je inschrijving is bevestigd.', 'gezonder-in-werk-booking' ),
+				'message' => $message,
 			),
 			201
 		);
