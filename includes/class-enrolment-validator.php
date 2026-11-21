@@ -8,22 +8,24 @@ defined( 'ABSPATH' ) || exit;
  */
 class Enrolment_Validator {
 
-	/** field => required? */
-	const FIELDS = array(
-		'first_name'        => true,
-		'last_name'         => true,
-		'email'             => true,
-		'employer'          => true,
-		'big_number'        => false,
-		'invoice_name'      => true,
-		'invoice_street'    => true,
-		'invoice_postcode'  => true,
-		'invoice_city'      => true,
-		'invoice_email'     => false,
-		'invoice_reference' => false,
-		'invoice_kvk'       => false,
-		'invoice_btw'       => false,
-	);
+	/** First error for a single field value, or null when it is valid. */
+	private static function field_error( array $field, string $value ): ?string {
+		if ( '' === $value ) {
+			return $field['required'] ? __( 'Dit veld is verplicht.', 'gezonder-in-werk-booking' ) : null;
+		}
+		$max = Enrolment_Fields::max_length( $field );
+		if ( mb_strlen( $value ) > $max ) {
+			/* translators: %d: maximum number of characters */
+			return sprintf( __( 'Deze waarde is te lang (maximaal %d tekens).', 'gezonder-in-werk-booking' ), $max );
+		}
+		if ( 'email' === $field['type'] && ! is_email( $value ) ) {
+			return __( 'Vul een geldig e-mailadres in.', 'gezonder-in-werk-booking' );
+		}
+		if ( isset( $field['pattern'] ) && ! preg_match( $field['pattern'], $value ) ) {
+			return $field['pattern_message'];
+		}
+		return null;
+	}
 
 	/**
 	 * @param array $input Raw request values.
@@ -33,29 +35,18 @@ class Enrolment_Validator {
 		$values = array();
 		$errors = array();
 
-		foreach ( self::FIELDS as $field => $required ) {
-			$raw = $input[ $field ] ?? '';
-			$values[ $field ] = is_scalar( $raw ) ? trim( sanitize_text_field( (string) $raw ) ) : '';
-
-			if ( $required && '' === $values[ $field ] ) {
-				$errors[ $field ] = __( 'Dit veld is verplicht.', 'gezonder-in-werk-booking' );
+		foreach ( Enrolment_Fields::all() as $name => $field ) {
+			$raw   = $input[ $name ] ?? '';
+			$value = is_scalar( $raw ) ? trim( sanitize_text_field( (string) $raw ) ) : '';
+			if ( isset( $field['normalise'] ) ) {
+				$value = (string) call_user_func( $field['normalise'], $value );
 			}
-		}
+			$values[ $name ] = $value;
 
-		foreach ( $values as $field => $value ) {
-			if ( ! isset( $errors[ $field ] ) && mb_strlen( $value ) > 100 ) {
-				$errors[ $field ] = __( 'Deze waarde is te lang (maximaal 100 tekens).', 'gezonder-in-werk-booking' );
+			$error = self::field_error( $field, $value );
+			if ( null !== $error ) {
+				$errors[ $name ] = $error;
 			}
-		}
-
-		foreach ( array( 'email', 'invoice_email' ) as $field ) {
-			if ( '' !== $values[ $field ] && ! isset( $errors[ $field ] ) && ! is_email( $values[ $field ] ) ) {
-				$errors[ $field ] = __( 'Vul een geldig e-mailadres in.', 'gezonder-in-werk-booking' );
-			}
-		}
-
-		if ( '' !== $values['big_number'] && ! preg_match( '/^\d{11}$/', $values['big_number'] ) ) {
-			$errors['big_number'] = __( 'Een BIG-registratienummer bestaat uit 11 cijfers.', 'gezonder-in-werk-booking' );
 		}
 
 		$raw_session          = $input['session_id'] ?? '';

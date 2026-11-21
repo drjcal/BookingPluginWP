@@ -7,12 +7,8 @@
 
 defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
-global $wpdb;
+require_once __DIR__ . '/includes/class-installer.php';
 
-if ( get_option( 'gzw_booking_remove_data_on_uninstall' ) ) {
-	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}gzw_enrolments" ); // phpcs:ignore WordPress.DB.PreparedSQL
-	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}gzw_sessions" ); // phpcs:ignore WordPress.DB.PreparedSQL
-	$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}gzw_courses" ); // phpcs:ignore WordPress.DB.PreparedSQL
-	delete_option( 'gzw_booking_db_version' );
-	delete_option( 'gzw_booking_remove_data_on_uninstall' );
+if ( get_option( \GezonderInWerk\Booking\Installer::OPTION_REMOVE_ON_UNINSTALL ) ) {
+	\GezonderInWerk\Booking\Installer::uninstall();
 }

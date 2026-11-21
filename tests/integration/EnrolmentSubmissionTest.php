@@ -153,7 +153,26 @@ class EnrolmentSubmissionTest extends WP_UnitTestCase {
 			'too short' => array( '1234567890' ),
 			'too long'  => array( '123456789012' ),
 			'letters'   => array( '1234567890A' ),
+			'spaced but short' => array( '1234 5678 90' ),
 		);
+	}
+
+	public function test_big_number_with_spaces_is_normalised_and_stored(): void {
+		$params               = $this->valid();
+		$params['big_number'] = ' 1234 567 8901 ';
+
+		$this->assertSame( 201, $this->submit( $params )->get_status() );
+		$this->assertSame( '12345678901', $this->stored()[0]['big_number'] );
+	}
+
+	public function test_rejected_submission_returns_normalised_big_number(): void {
+		$params               = $this->valid();
+		$params['big_number'] = '1234 5678 90';
+
+		$data = $this->submit( $params )->get_data();
+
+		$this->assertArrayHasKey( 'big_number', $data['errors'] );
+		$this->assertSame( '1234567890', $data['values']['big_number'] );
 	}
 
 	public function test_rejected_submission_returns_input_so_it_can_be_preserved(): void {
@@ -185,7 +204,7 @@ class EnrolmentSubmissionTest extends WP_UnitTestCase {
 		remove_filter( 'query', array( $this, '_drop_temporary_tables' ) );
 		$wpdb->query( "DROP TABLE IF EXISTS {$table}" );
 
-		do_action( 'activate_gezonder-in-werk-booking/gezonder-in-werk-booking.php' );
+		do_action( 'activate_' . plugin_basename( GZW_BOOKING_FILE ) );
 
 		$this->assertSame( $table, $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) );
 	}
@@ -328,5 +347,143 @@ class EnrolmentSubmissionTest extends WP_UnitTestCase {
 		$this->assertSame( 12500, \GezonderInWerk\Booking\Admin_Page::euros_to_cents( '125' ) );
 		$this->assertNull( \GezonderInWerk\Booking\Admin_Page::euros_to_cents( 'abc' ) );
 		$this->assertNull( \GezonderInWerk\Booking\Admin_Page::euros_to_cents( '-5' ) );
+	}
+
+	private function admin_post( string $action, array $post ): string {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_POST                = $post;
+		$_REQUEST['_wpnonce'] = wp_create_nonce( $action );
+		$location             = '';
+		$catch                = static function ( $url ) {
+			throw new RuntimeException( $url );
+		};
+		add_filter( 'wp_redirect', $catch );
+		try {
+			call_user_func( array( \GezonderInWerk\Booking\Admin_Page::class, 'handle_' . substr( $action, 4 ) ) );
+		} catch ( RuntimeException $e ) {
+			$location = $e->getMessage();
+		} finally {
+			remove_filter( 'wp_redirect', $catch );
+			$_POST = array();
+			unset( $_REQUEST['_wpnonce'] );
+		}
+		return $location;
+	}
+
+	private function courses_count(): int {
+		return count( \GezonderInWerk\Booking\Catalog_Repository::courses() );
+	}
+
+	public function test_admin_can_create_a_course(): void {
+		$before   = $this->courses_count();
+		$location = $this->admin_post(
+			'gzw_save_course',
+			array( 'title' => 'Nieuwe cursus', 'description' => 'Omschrijving', 'accreditation' => '', 'price' => '125,50' )
+		);
+
+		$this->assertSame( $before + 1, $this->courses_count() );
+		$this->assertStringContainsString( 'gzw_notice=saved', $location );
+		$new = current( wp_list_filter( \GezonderInWerk\Booking\Catalog_Repository::courses(), array( 'title' => 'Nieuwe cursus' ) ) );
+		$this->assertSame( 'Nieuwe cursus', $new['title'] );
+		$this->assertSame( '12550', $new['price_cents'] );
+	}
+
+	public function test_admin_can_edit_a_course(): void {
+		$course = (int) \GezonderInWerk\Booking\Catalog_Repository::get_session( $this->session_id )['course_id'];
+
+		$this->admin_post( 'gzw_save_course', array( 'id' => (string) $course, 'title' => 'Hernoemd', 'price' => '99' ) );
+
+		$updated = \GezonderInWerk\Booking\Catalog_Repository::get_course( $course );
+		$this->assertSame( 'Hernoemd', $updated['title'] );
+		$this->assertSame( '9900', $updated['price_cents'] );
+	}
+
+	public function test_invalid_course_is_not_saved(): void {
+		$before   = $this->courses_count();
+		$location = $this->admin_post( 'gzw_save_course', array( 'title' => '', 'price' => 'abc' ) );
+
+		$this->assertSame( $before, $this->courses_count() );
+		$this->assertStringContainsString( 'gzw_notice=invalid_course', $location );
+	}
+
+	public function test_admin_can_create_and_edit_a_session(): void {
+		$course = (int) \GezonderInWerk\Booking\Catalog_Repository::get_session( $this->session_id )['course_id'];
+		$post   = array(
+			'course_id'    => (string) $course,
+			'session_date' => '2027-06-01',
+			'start_time'   => '10:00',
+			'end_time'     => '12:00',
+			'location'     => 'Utrecht',
+			'is_open'      => '1',
+		);
+
+		$this->admin_post( 'gzw_save_session', $post );
+		$sessions = \GezonderInWerk\Booking\Catalog_Repository::sessions_for_course( $course );
+		$this->assertCount( 2, $sessions );
+		$created = end( $sessions );
+		$this->assertSame( 'Utrecht', $created['location'] );
+
+		unset( $post['is_open'] );
+		$this->admin_post( 'gzw_save_session', array( 'id' => $created['id'], 'location' => 'Zwolle' ) + $post );
+		$edited = \GezonderInWerk\Booking\Catalog_Repository::get_session( (int) $created['id'] );
+		$this->assertSame( 'Zwolle', $edited['location'] );
+		$this->assertSame( '0', (string) $edited['is_open'] );
+	}
+
+	public function test_invalid_session_is_not_saved(): void {
+		$course   = (int) \GezonderInWerk\Booking\Catalog_Repository::get_session( $this->session_id )['course_id'];
+		$location = $this->admin_post(
+			'gzw_save_session',
+			array( 'course_id' => (string) $course, 'session_date' => '2027-02-30', 'start_time' => '12:00', 'end_time' => '10:00', 'location' => 'X' )
+		);
+
+		$this->assertCount( 1, \GezonderInWerk\Booking\Catalog_Repository::sessions_for_course( $course ) );
+		$this->assertStringContainsString( 'gzw_notice=invalid_session', $location );
+	}
+
+	public function test_admin_can_delete_unused_session_and_course(): void {
+		$course = (int) \GezonderInWerk\Booking\Catalog_Repository::get_session( $this->session_id )['course_id'];
+
+		$this->admin_post( 'gzw_delete_session', array( 'id' => (string) $this->session_id, 'course_id' => (string) $course ) );
+		$this->assertNull( \GezonderInWerk\Booking\Catalog_Repository::get_session( $this->session_id ) );
+
+		$location = $this->admin_post( 'gzw_delete_course', array( 'id' => (string) $course ) );
+		$this->assertNull( \GezonderInWerk\Booking\Catalog_Repository::get_course( $course ) );
+		$this->assertStringContainsString( 'gzw_notice=deleted', $location );
+	}
+
+	public function test_admin_cannot_delete_session_with_enrolments(): void {
+		$this->submit( $this->valid() );
+		$course   = (int) \GezonderInWerk\Booking\Catalog_Repository::get_session( $this->session_id )['course_id'];
+		$location = $this->admin_post( 'gzw_delete_session', array( 'id' => (string) $this->session_id, 'course_id' => (string) $course ) );
+
+		$this->assertNotNull( \GezonderInWerk\Booking\Catalog_Repository::get_session( $this->session_id ) );
+		$this->assertStringContainsString( 'gzw_notice=in_use', $location );
+	}
+
+	public function test_admin_handlers_refuse_users_without_capability(): void {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'subscriber' ) ) );
+		$_REQUEST['_wpnonce'] = wp_create_nonce( 'gzw_save_course' );
+		$_POST                = array( 'title' => 'Hack', 'price' => '1' );
+		$before               = $this->courses_count();
+
+		$this->expectException( WPDieException::class );
+		try {
+			\GezonderInWerk\Booking\Admin_Page::handle_save_course();
+		} finally {
+			$_POST = array();
+			unset( $_REQUEST['_wpnonce'] );
+			$this->assertSame( $before, $this->courses_count() );
+		}
+	}
+
+	public function test_field_definition_drives_form_validation_and_storage(): void {
+		global $wpdb;
+		$html    = do_shortcode( '[gezonder_inschrijfformulier]' );
+		$columns = $wpdb->get_col( "SHOW COLUMNS FROM {$wpdb->prefix}gzw_enrolments", 0 );
+		foreach ( array_keys( \GezonderInWerk\Booking\Enrolment_Fields::all() ) as $name ) {
+			$this->assertStringContainsString( 'name="' . $name . '"', $html, "form: $name" );
+			$this->assertContains( $name, $columns, "column: $name" );
+		}
 	}
 }

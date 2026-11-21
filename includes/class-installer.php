@@ -5,7 +5,18 @@ defined( 'ABSPATH' ) || exit;
 
 class Installer {
 
-	const DB_VERSION = '2';
+	const DB_VERSION = '3';
+
+	const OPTION_DB_VERSION          = 'gzw_booking_db_version';
+	const OPTION_REMOVE_ON_UNINSTALL = 'gzw_booking_remove_data_on_uninstall';
+
+	const STATUS_CONFIRMED = 'confirmed';
+	const STATUS_CANCELLED = 'cancelled';
+	/** Status given to a new enrolment. */
+	const STATUS_DEFAULT = self::STATUS_CONFIRMED;
+
+	/** Capability to view and manage enrolments; granted to administrators. */
+	const CAP_MANAGE_ENROLMENTS = 'gzw_manage_enrolments';
 
 	public static function table_name(): string {
 		global $wpdb;
@@ -26,10 +37,29 @@ class Installer {
 		self::create_tables();
 	}
 
+	/** Give administrators the enrolment capability (idempotent). */
+	public static function grant_capabilities(): void {
+		$role = get_role( 'administrator' );
+		if ( $role && ! $role->has_cap( self::CAP_MANAGE_ENROLMENTS ) ) {
+			$role->add_cap( self::CAP_MANAGE_ENROLMENTS );
+		}
+	}
+
 	public static function maybe_upgrade(): void {
-		if ( get_option( 'gzw_booking_db_version' ) !== self::DB_VERSION ) {
+		if ( get_option( self::OPTION_DB_VERSION ) !== self::DB_VERSION ) {
 			self::create_tables();
 		}
+		self::grant_capabilities();
+	}
+
+	/** Drop all plugin data. Called from uninstall.php only when the owner opted in. */
+	public static function uninstall(): void {
+		global $wpdb;
+		foreach ( array( self::table_name(), self::sessions_table(), self::courses_table() ) as $table ) {
+			$wpdb->query( "DROP TABLE IF EXISTS {$table}" ); // phpcs:ignore WordPress.DB.PreparedSQL -- table names come from this class.
+		}
+		delete_option( self::OPTION_DB_VERSION );
+		delete_option( self::OPTION_REMOVE_ON_UNINSTALL );
 	}
 
 	private static function create_tables(): void {
@@ -39,8 +69,10 @@ class Installer {
 		$table   = self::table_name();
 		$charset = $wpdb->get_charset_collate();
 
-		$courses  = self::courses_table();
-		$sessions = self::sessions_table();
+		$field_columns = implode( ",\n\t\t\t\t", Enrolment_Fields::column_sql() ) . ',';
+		$status        = self::STATUS_DEFAULT;
+		$courses       = self::courses_table();
+		$sessions      = self::sessions_table();
 
 		dbDelta(
 			"CREATE TABLE {$courses} (
@@ -72,20 +104,10 @@ class Installer {
 				id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
 				session_id bigint(20) unsigned NOT NULL DEFAULT 0,
 				price_cents int(10) unsigned NOT NULL DEFAULT 0,
-				first_name varchar(100) NOT NULL,
-				last_name varchar(100) NOT NULL,
-				email varchar(190) NOT NULL,
-				employer varchar(190) NOT NULL,
-				big_number varchar(11) NOT NULL DEFAULT '',
-				invoice_name varchar(190) NOT NULL,
-				invoice_street varchar(190) NOT NULL,
-				invoice_postcode varchar(20) NOT NULL,
-				invoice_city varchar(100) NOT NULL,
-				invoice_email varchar(190) NOT NULL DEFAULT '',
-				invoice_reference varchar(190) NOT NULL DEFAULT '',
-				invoice_kvk varchar(50) NOT NULL DEFAULT '',
-				invoice_btw varchar(50) NOT NULL DEFAULT '',
-				status varchar(20) NOT NULL DEFAULT 'confirmed',
+				{$field_columns}
+				status varchar(20) NOT NULL DEFAULT '{$status}',
+				invoiced tinyint(1) NOT NULL DEFAULT 0,
+				internal_note text NOT NULL,
 				created_at datetime NOT NULL,
 				PRIMARY KEY  (id),
 				KEY email (email),
@@ -94,6 +116,7 @@ class Installer {
 			) {$charset};"
 		);
 
-		update_option( 'gzw_booking_db_version', self::DB_VERSION );
+		self::grant_capabilities();
+		update_option( self::OPTION_DB_VERSION, self::DB_VERSION );
 	}
 }

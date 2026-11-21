@@ -69,7 +69,8 @@ class Catalog_Repository {
 	public static function courses(): array {
 		global $wpdb;
 		$table = Installer::courses_table();
-		return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY title ASC", ARRAY_A );
+		// No user input: the table name comes from Installer, the rest is static.
+		return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY title ASC", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	}
 
 	public static function sessions_for_course( int $course_id ): array {
@@ -89,6 +90,17 @@ class Catalog_Repository {
 		return $wpdb->get_results(
 			"SELECT s.*, c.title, c.price_cents FROM {$s} s JOIN {$c} c ON c.id = s.course_id
 			WHERE s.is_open = 1 ORDER BY s.session_date ASC, s.start_time ASC",
+			ARRAY_A
+		);
+	}
+
+	/** All sessions with their course title, latest first (open or closed). */
+	public static function all_sessions(): array {
+		global $wpdb;
+		$s = Installer::sessions_table();
+		$c = Installer::courses_table();
+		return $wpdb->get_results(
+			"SELECT s.*, c.title FROM {$s} s JOIN {$c} c ON c.id = s.course_id ORDER BY s.session_date DESC, s.start_time ASC", // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- no user input.
 			ARRAY_A
 		);
 	}

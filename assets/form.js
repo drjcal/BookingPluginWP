@@ -19,6 +19,16 @@
 			} );
 		}
 
+		// Show what the server returned (e.g. a normalised BIG number) without relying on untouched input.
+		function restoreValues( values ) {
+			Object.keys( values || {} ).forEach( function ( name ) {
+				var input = form.elements[ name ];
+				if ( input && 'string' === typeof values[ name ] && 'hidden' !== input.type ) {
+					input.value = values[ name ];
+				}
+			} );
+		}
+
 		function showErrors( errors ) {
 			var first = null;
 			Object.keys( errors ).forEach( function ( name ) {
@@ -61,7 +71,8 @@
 						form.reset();
 						status.focus();
 					} else if ( result.data.errors ) {
-						showErrors( result.data.errors ); // Input stays untouched.
+						restoreValues( result.data.values );
+						showErrors( result.data.errors );
 					}
 				} )
 				.catch( function () {

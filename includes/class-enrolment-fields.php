@@ -1,0 +1,188 @@
+<?php
+namespace GezonderInWerk\Booking;
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * The single definition of the enrolment fields. Validation, the form, and the
+ * storage schema all read from here, so a new field is one entry in all().
+ *
+ * Keys per field:
+ *  - label        Display label (without the "optional" suffix).
+ *  - type         HTML input type; 'email' also validates as an e-mail address.
+ *  - autocomplete HTML autocomplete token.
+ *  - required     Whether an empty value is rejected.
+ *  - max          Maximum length in characters.
+ *  - group        GROUP_PERSON or GROUP_BILLING (form fieldset).
+ *  - storage      SQL column type; optional fields get NOT NULL DEFAULT ''.
+ *  - normalise    (optional) callable applied to the value before validation.
+ *  - pattern      (optional) regex the normalised value must match when given.
+ *  - pattern_message (optional) error shown when the pattern fails.
+ *  - inputmode / describedby (optional) form attributes.
+ *  - list         (optional) true to show the field as a column in the admin list.
+ *  - search       (optional) true to include the field in the admin list search.
+ */
+class Enrolment_Fields {
+
+	const GROUP_PERSON  = 'person';
+	const GROUP_BILLING = 'billing';
+
+	const MAX_LENGTH = 100;
+
+	/** @return array<string,array<string,mixed>> */
+	public static function all(): array {
+		return array(
+			'first_name'        => array(
+				'label'        => __( 'Voornaam', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'given-name',
+				'required'     => true,
+				'group'        => self::GROUP_PERSON,
+				'storage'      => 'varchar(100)',
+				'list'         => true,
+				'search'       => true,
+			),
+			'last_name'         => array(
+				'label'        => __( 'Achternaam', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'family-name',
+				'required'     => true,
+				'group'        => self::GROUP_PERSON,
+				'storage'      => 'varchar(100)',
+				'list'         => true,
+				'search'       => true,
+			),
+			'email'             => array(
+				'label'        => __( 'E-mailadres', 'gezonder-in-werk-booking' ),
+				'type'         => 'email',
+				'autocomplete' => 'email',
+				'required'     => true,
+				'group'        => self::GROUP_PERSON,
+				'storage'      => 'varchar(190)',
+				'list'         => true,
+				'search'       => true,
+			),
+			'employer'          => array(
+				'label'        => __( 'Werkzaam bij', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'organization',
+				'required'     => true,
+				'group'        => self::GROUP_PERSON,
+				'storage'      => 'varchar(190)',
+				'list'         => true,
+				'search'       => true,
+			),
+			'big_number'        => array(
+				'label'           => __( 'BIG-registratienummer', 'gezonder-in-werk-booking' ),
+				'type'            => 'text',
+				'autocomplete'    => 'off',
+				'required'        => false,
+				'group'           => self::GROUP_PERSON,
+				'storage'         => 'varchar(11)',
+				'normalise'       => array( self::class, 'strip_whitespace' ),
+				'pattern'         => '/^\d{11}$/',
+				'pattern_message' => __( 'Een BIG-registratienummer bestaat uit 11 cijfers.', 'gezonder-in-werk-booking' ),
+				'inputmode'       => 'numeric',
+				'describedby'     => 'gzw-big-hint',
+				'list'            => true,
+			),
+			'invoice_name'      => array(
+				'label'        => __( 'Factuurnaam', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'organization',
+				'required'     => true,
+				'group'        => self::GROUP_BILLING,
+				'storage'      => 'varchar(190)',
+			),
+			'invoice_street'    => array(
+				'label'        => __( 'Straat en huisnummer', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'street-address',
+				'required'     => true,
+				'group'        => self::GROUP_BILLING,
+				'storage'      => 'varchar(190)',
+			),
+			'invoice_postcode'  => array(
+				'label'        => __( 'Postcode', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'postal-code',
+				'required'     => true,
+				'group'        => self::GROUP_BILLING,
+				'storage'      => 'varchar(20)',
+			),
+			'invoice_city'      => array(
+				'label'        => __( 'Plaats', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'address-level2',
+				'required'     => true,
+				'group'        => self::GROUP_BILLING,
+				'storage'      => 'varchar(100)',
+			),
+			'invoice_email'     => array(
+				'label'        => __( 'Factuur e-mailadres', 'gezonder-in-werk-booking' ),
+				'type'         => 'email',
+				'autocomplete' => 'off',
+				'required'     => false,
+				'group'        => self::GROUP_BILLING,
+				'storage'      => 'varchar(190)',
+			),
+			'invoice_reference' => array(
+				'label'        => __( 'PO- of referentienummer', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'off',
+				'required'     => false,
+				'group'        => self::GROUP_BILLING,
+				'storage'      => 'varchar(190)',
+			),
+			'invoice_kvk'       => array(
+				'label'        => __( 'KvK-nummer', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'off',
+				'required'     => false,
+				'group'        => self::GROUP_BILLING,
+				'storage'      => 'varchar(50)',
+			),
+			'invoice_btw'       => array(
+				'label'        => __( 'BTW-nummer', 'gezonder-in-werk-booking' ),
+				'type'         => 'text',
+				'autocomplete' => 'off',
+				'required'     => false,
+				'group'        => self::GROUP_BILLING,
+				'storage'      => 'varchar(50)',
+			),
+		);
+	}
+
+	/** @return array<string,array<string,mixed>> Fields of one group, keyed by name. */
+	public static function in_group( string $group ): array {
+		return array_filter( self::all(), static fn( array $f ) => $group === $f['group'] );
+	}
+
+	/** @return array<string,array<string,mixed>> Fields shown as admin list columns. */
+	public static function list_fields(): array {
+		return array_filter( self::all(), static fn( array $f ) => ! empty( $f['list'] ) );
+	}
+
+	/** @return string[] Names of the fields the admin list search looks in. */
+	public static function search_fields(): array {
+		return array_keys( array_filter( self::all(), static fn( array $f ) => ! empty( $f['search'] ) ) );
+	}
+
+	/** Maximum length of a field value in characters. */
+	public static function max_length( array $field ): int {
+		return (int) ( $field['max'] ?? self::MAX_LENGTH );
+	}
+
+	public static function strip_whitespace( string $value ): string {
+		return (string) preg_replace( '/\s+/', '', $value );
+	}
+
+	/** SQL column definitions, one per field, for the enrolment table. */
+	public static function column_sql(): array {
+		$columns = array();
+		foreach ( self::all() as $name => $field ) {
+			$columns[] = $name . ' ' . $field['storage'] . ( $field['required'] ? ' NOT NULL' : " NOT NULL DEFAULT ''" );
+		}
+		return $columns;
+	}
+}
