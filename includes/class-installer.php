@@ -5,7 +5,7 @@ defined( 'ABSPATH' ) || exit;
 
 class Installer {
 
-	const DB_VERSION = '6';
+	const DB_VERSION = '7';
 
 	const OPTION_DB_VERSION          = 'gzw_booking_db_version';
 	const OPTION_REMOVE_ON_UNINSTALL = 'gzw_booking_remove_data_on_uninstall';
@@ -151,6 +151,7 @@ class Installer {
 				location varchar(190) NOT NULL,
 				is_open tinyint(1) NOT NULL DEFAULT 1,
 				capacity int(10) unsigned DEFAULT NULL,
+				format varchar(20) NOT NULL DEFAULT 'webinar',
 				PRIMARY KEY  (id),
 				KEY course_id (course_id)
 			) {$charset};"

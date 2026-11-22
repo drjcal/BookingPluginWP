@@ -179,7 +179,8 @@ class Seat_Allocation {
 			$row['status']            = $status;
 			$row['active_session_id'] = self::active_session_id( $status, (int) $current['session_id'] );
 		}
-		$write = static function () use ( $wpdb, $row, $id, $current, $status ): string {
+		$promoted = false;
+		$write    = static function () use ( $wpdb, $row, $id, $current, $status, &$promoted ): string {
 			// Re-read under the lock: the status may have changed since the form was loaded.
 			$fresh = Enrolment_Repository::get( $id );
 			if ( ! $fresh || (int) $fresh['session_id'] !== (int) $current['session_id'] ) {
@@ -194,9 +195,18 @@ class Seat_Allocation {
 			$wpdb->suppress_errors( true );
 			$ok = $wpdb->update( Installer::table_name(), $row, array( 'id' => $id ) );
 			$wpdb->suppress_errors( false );
+			$promoted = false !== $ok && Installer::STATUS_WAITLISTED === $fresh['status'] && Installer::STATUS_CONFIRMED === $status;
 			return false === $ok ? 'error' : 'ok';
 		};
-		return Session_Lock::run( (int) $current['session_id'], $write ) ?? 'busy';
+		$result = Session_Lock::run( (int) $current['session_id'], $write ) ?? 'busy';
+		if ( $promoted ) {
+			// After the lock is released: the enrolee now gets the expectation text they were not promised while waitlisted.
+			$fresh = Enrolment_Repository::get( $id );
+			if ( $fresh ) {
+				Enrolment_Mailer::send_promotion( Enrolment_Intake::mail(), $fresh );
+			}
+		}
+		return $result;
 	}
 
 	/** Staff promote a waitlisted enrolment to confirmed, keeping every other field. */

@@ -107,7 +107,7 @@ class Enrolment_Repository {
 		$e   = Installer::table_name();
 		$s   = Installer::sessions_table();
 		$c   = Installer::courses_table();
-		$sql = "SELECT e.*, s.course_id, s.session_date, s.start_time, s.end_time, s.location, c.title AS course_title
+		$sql = "SELECT e.*, s.course_id, s.session_date, s.start_time, s.end_time, s.location, s.format, c.title AS course_title
 			FROM {$e} e LEFT JOIN {$s} s ON s.id = e.session_id LEFT JOIN {$c} c ON c.id = s.course_id {$clause} {$tail}";
 		return $wpdb->get_results( $args ? $wpdb->prepare( $sql, $args ) : $sql, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL -- tables from Installer, values prepared.
 	}

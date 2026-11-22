@@ -29,7 +29,8 @@ class Catalog_Repository {
 
 	/**
 	 * @param array $data course_id, session_date (Y-m-d), start_time, end_time (H:i), location, is_open,
-	 *                    capacity (positive int; empty or missing = unlimited).
+	 *                    capacity (positive int; empty or missing = unlimited),
+	 *                    format (webinar|live; default webinar).
 	 * @return int Session id, 0 on failure.
 	 */
 	public static function save_session( array $data, int $id = 0 ): int {
@@ -51,6 +52,7 @@ class Catalog_Repository {
 			'end_time'     => (string) ( $data['end_time'] ?? '' ),
 			'location'     => (string) ( $data['location'] ?? '' ),
 			'is_open'      => empty( $data['is_open'] ) ? 0 : 1,
+			'format'       => Expectation_Texts::normalise_format( $data['format'] ?? null ),
 			'capacity'     => ( isset( $data['capacity'] ) && (int) $data['capacity'] > 0 ) ? (int) $data['capacity'] : null,
 		);
 		if ( $id ) {
