@@ -26,13 +26,18 @@ class Snelstart_Export {
 		if ( ! $ledgers || ! $rows ) {
 			return '';
 		}
-		$net = array_sum( array_map( static fn( array $r ) => (int) $r['price_cents'], $rows ) );
+		$confirmed = array_filter( $rows, static fn( array $r ) => Installer::STATUS_WAITLISTED !== $r['status'] );
+		$net       = array_sum( array_map( static fn( array $r ) => (int) $r['price_cents'], $rows ) );
+		if ( ! $confirmed || $net <= 0 ) {
+			return ''; // Nothing to invoice yet (waitlisted) or nothing to book (free).
+		}
 		$vat = (int) round( $net * self::VAT_PERCENT / 100 );
 
 		$dates = array_map( static fn( array $r ) => mysql2date( 'd-m-Y', $r['session_date'] ), $rows );
 		$parts = array(
 			$cycle ? $cycle['title'] : $rows[0]['course_title'],
 			implode( ', ', $dates ),
+			(string) ( $values['invoice_name'] ?? '' ),
 			trim( $values['first_name'] . ' ' . $values['last_name'] ),
 			(string) ( $values['invoice_reference'] ?? '' ),
 		);

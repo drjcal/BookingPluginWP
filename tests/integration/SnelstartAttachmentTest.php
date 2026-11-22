@@ -135,6 +135,28 @@ class SnelstartAttachmentTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( 'Cyclus X', $rows[0][6] );
 	}
 
+	public function test_no_attachment_for_a_waitlisted_or_free_enrolment(): void {
+		$this->configure();
+		$full = Catalog_Repository::save_session(
+			array( 'course_id' => Catalog_Repository::save_course( array( 'title' => 'Vol', 'price_cents' => 10000 ) ), 'session_date' => '2027-03-15', 'start_time' => '19:00', 'end_time' => '20:30', 'location' => 'Online', 'is_open' => 1, 'capacity' => 1 )
+		);
+		Gzw_Submission::post( array_merge( $this->valid( (string) $full ), array( 'email' => 'eerste@example.nl' ) ) );
+		$this->mails = array();
+		Gzw_Submission::post( $this->valid( (string) $full ) );
+		$this->assertEmpty( $this->admin_mail()['attachments'], 'waitlisted' );
+
+		$this->mails = array();
+		Gzw_Submission::post( $this->valid( (string) $this->session( 'Gratis', '2027-05-01', 0 ) ) );
+		$this->assertEmpty( $this->admin_mail()['attachments'], 'free' );
+	}
+
+	public function test_description_names_the_billing_entity(): void {
+		$this->configure();
+		Gzw_Submission::post( $this->valid( (string) $this->session( 'Nascholing Rugpijn', '2027-03-15' ) ) );
+		$rows = $this->rows( reset( $this->admin_mail()['attachment_contents'] ) );
+		$this->assertStringContainsString( 'Arbodienst Oost B.V.', $rows[0][6] );
+	}
+
 	public function test_sanitised_ledger_numbers_are_digits_only(): void {
 		$this->assertSame( '1300', Settings_Page::sanitize_ledger_number( ' 1300 ' ) );
 		$this->assertSame( '', Settings_Page::sanitize_ledger_number( '13a' ) );
