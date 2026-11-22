@@ -29,12 +29,12 @@ class Gzw_Submission {
 /** Test mail adapter: records instead of sending. Install with Enrolment_Intake::use_mail_adapter(). */
 class Gzw_Mail_Recorder implements \GezonderInWerk\Booking\Mail_Adapter {
 
-	/** @var array<int,array{to:string,subject:string,html:string,plain:string,body:string}> */
+	/** @var array<int,array{to:string,subject:string,html:string,plain:string,body:string,attachments:string[]}> */
 	public array $sent = array();
 
-	public function send( string $to, string $subject, string $html, string $plain = '' ): void {
+	public function send( string $to, string $subject, string $html, string $plain = '', array $attachments = array() ): void {
 		$body = $html;
-		$this->sent[] = compact( 'to', 'subject', 'html', 'plain', 'body' );
+		$this->sent[] = compact( 'to', 'subject', 'html', 'plain', 'body', 'attachments' );
 	}
 }
 

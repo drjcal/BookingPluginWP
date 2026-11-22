@@ -20,7 +20,7 @@ All code lives in the namespace `GezonderInWerk\Booking`, in `includes/class-*.p
 2. `Rest_Controller::create` runs `Spam_Guard::check` (nonce, honeypot, per-IP rate limit). Rejected submissions are never stored.
 3. `Enrolment_Validator::validate` checks every field defined in `Enrolment_Fields` and resolves the target: a session id, or a cycle (see `cycle_id_from`). On failure the controller answers `422 validation_failed` with `errors` and the submitted `values`, so the form can restore what the user typed.
 4. `Enrolment_Repository::enrol` (single session) or `enrol_cycle` (all sessions of a cycle, all or nothing) stores the result. Outcomes: `closed`, `duplicate` (both mapped to a 422 on the relevant field) or a storage error (500).
-5. Success returns `201` with `id`, `status` (`confirmed` or `waitlisted`) and a message; cycle submissions also return `ids` and `group_reference`. A confirmation e-mail goes out through `Enrolment_Mailer`.
+5. Success returns `201` with `id`, `status` (`confirmed` or `waitlisted`) and a message; cycle submissions also return `ids` and `group_reference`. A confirmation e-mail goes out through `Enrolment_Mailer`. The admin notification carries a SnelStart booking CSV from `Snelstart_Export` (via `Mail_Adapter::send`'s `$attachments`) once all four ledger settings are filled in.
 
 ## Data model
 
@@ -53,7 +53,7 @@ Table names come from `Installer::*_table()` (WordPress prefix applied). The sch
 | `Cycles_Admin` | Cycles submenu | Create, edit, delete cycles. |
 | `Enrolments_Admin` | Enrolments menu: list, filters, detail | Update status, invoiced flag and note; promote; delete (a whole group for cycles). |
 | `Enrolments_Export` | CSV export of the filtered list | Values starting with formula characters are neutralised. |
-| `Settings_Page` | Settings submenu | Retention months, notification e-mail, remove-data-on-uninstall. |
+| `Settings_Page` | Settings submenu | Retention months, notification e-mail, SnelStart ledger numbers, remove-data-on-uninstall. |
 
 Enrolment screens are gated by the capability `gzw_manage_enrolments` (`Installer::CAP_MANAGE_ENROLMENTS`), granted to administrators when the schema is created or upgraded. Every `admin_post` handler checks it plus a nonce.
 

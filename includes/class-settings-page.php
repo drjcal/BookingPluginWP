@@ -16,6 +16,11 @@ class Settings_Page {
 	const OPTION_ORG_NAME           = 'gzw_booking_org_name';
 	const OPTION_CONTACT_EMAIL      = 'gzw_booking_contact_email';
 
+	const OPTION_SNELSTART_JOURNAL  = 'gzw_booking_snelstart_journal';
+	const OPTION_SNELSTART_DEBTORS  = 'gzw_booking_snelstart_debtors';
+	const OPTION_SNELSTART_REVENUE  = 'gzw_booking_snelstart_revenue';
+	const OPTION_SNELSTART_VAT      = 'gzw_booking_snelstart_vat';
+
 	const DEFAULT_RETENTION_MONTHS = 24;
 	const MAX_RETENTION_MONTHS     = 120;
 
@@ -101,6 +106,17 @@ class Settings_Page {
 				'default'           => self::DEFAULT_RETENTION_MONTHS,
 			)
 		);
+		foreach ( array_keys( self::snelstart_fields() ) as $option ) {
+			register_setting(
+				'gzw_settings',
+				$option,
+				array(
+					'type'              => 'string',
+					'sanitize_callback' => array( self::class, 'sanitize_ledger_number' ),
+					'default'           => '',
+				)
+			);
+		}
 		register_setting(
 			'gzw_settings',
 			Installer::OPTION_REMOVE_ON_UNINSTALL,
@@ -110,6 +126,37 @@ class Settings_Page {
 				'default'           => 0,
 			)
 		);
+	}
+
+	/** @return array<string,string> Option name => label of the SnelStart numbers. */
+	private static function snelstart_fields(): array {
+		return array(
+			self::OPTION_SNELSTART_JOURNAL => __( 'SnelStart: dagboek verkoop', 'gezonder-in-werk-booking' ),
+			self::OPTION_SNELSTART_DEBTORS => __( 'SnelStart: grootboek debiteuren', 'gezonder-in-werk-booking' ),
+			self::OPTION_SNELSTART_REVENUE => __( 'SnelStart: grootboek omzet', 'gezonder-in-werk-booking' ),
+			self::OPTION_SNELSTART_VAT     => __( 'SnelStart: grootboek BTW hoog', 'gezonder-in-werk-booking' ),
+		);
+	}
+
+	/** Digits only, or '' when the value holds anything else. */
+	public static function sanitize_ledger_number( $value ): string {
+		$value = trim( (string) $value );
+		return ctype_digit( $value ) ? $value : '';
+	}
+
+	/**
+	 * The SnelStart numbers, or null while any of them is missing (no attachment is made then).
+	 *
+	 * @return ?array{journal:string,debtors:string,revenue:string,vat:string}
+	 */
+	public static function snelstart_ledgers(): ?array {
+		$ledgers = array(
+			'journal' => self::sanitize_ledger_number( get_option( self::OPTION_SNELSTART_JOURNAL, '' ) ),
+			'debtors' => self::sanitize_ledger_number( get_option( self::OPTION_SNELSTART_DEBTORS, '' ) ),
+			'revenue' => self::sanitize_ledger_number( get_option( self::OPTION_SNELSTART_REVENUE, '' ) ),
+			'vat'     => self::sanitize_ledger_number( get_option( self::OPTION_SNELSTART_VAT, '' ) ),
+		);
+		return in_array( '', $ledgers, true ) ? null : $ledgers;
 	}
 
 	/** Whole months between 0 (never clean up) and the maximum. */
@@ -228,6 +275,17 @@ class Settings_Page {
 							<p class="description"><?php esc_html_e( 'Inschrijvingen waarvan de datum zo lang geleden is, worden dagelijks geanonimiseerd: persoonsgegevens worden gewist, prijs en status blijven bewaard. Bij een cyclus gebeurt dat voor alle webinars tegelijk, na het laatste webinar. 0 bewaart alles.', 'gezonder-in-werk-booking' ); ?></p>
 						</td>
 					</tr>
+					<?php foreach ( self::snelstart_fields() as $option => $label ) : ?>
+						<tr>
+							<th><label for="<?php echo esc_attr( $option ); ?>"><?php echo esc_html( $label ); ?></label></th>
+							<td>
+								<input type="text" inputmode="numeric" id="<?php echo esc_attr( $option ); ?>" class="small-text" name="<?php echo esc_attr( $option ); ?>" value="<?php echo esc_attr( (string) get_option( $option, '' ) ); ?>" />
+								<?php if ( self::OPTION_SNELSTART_VAT === $option ) : ?>
+									<p class="description"><?php esc_html_e( 'Met alle vier de nummers ingevuld krijgt de melding per e-mail een SnelStart-boekingsbestand (CSV) als bijlage. Klantcode en factuurnummer vult u zelf in voor het importeren. Leeg laten betekent geen bijlage.', 'gezonder-in-werk-booking' ); ?></p>
+								<?php endif; ?>
+							</td>
+						</tr>
+					<?php endforeach; ?>
 					<tr>
 						<th><?php esc_html_e( 'Verwijderen van de plugin', 'gezonder-in-werk-booking' ); ?></th>
 						<td>

@@ -37,12 +37,36 @@ class Enrolment_Mailer {
 		$admin_html    = Email_Template::render_admin_notification_html( $values, $rows, $cycle, $admin_url );
 		$admin_plain   = Email_Template::render_admin_notification_plain( $values, $rows, $cycle, $admin_url );
 
-		$mail->send(
-			Settings_Page::notification_email(),
-			$admin_subject,
-			$admin_html,
-			$admin_plain
-		);
+		$csv  = Snelstart_Export::build( $values, $rows, $cycle );
+		$file = '' !== $csv ? self::temp_file( 'snelstart-' . $rows[0]['id'] . '.csv', $csv ) : '';
+		try {
+			$mail->send(
+				Settings_Page::notification_email(),
+				$admin_subject,
+				$admin_html,
+				$admin_plain,
+				'' !== $file ? array( $file ) : array()
+			);
+		} finally {
+			if ( '' !== $file ) {
+				wp_delete_file( $file );
+				@rmdir( dirname( $file ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+			}
+		}
+	}
+
+	/** Writes $contents to a fresh private temp directory under its real name; '' on failure. */
+	private static function temp_file( string $name, string $contents ): string {
+		$dir = trailingslashit( get_temp_dir() ) . 'gzw-' . wp_generate_password( 12, false );
+		if ( ! wp_mkdir_p( $dir ) ) {
+			return '';
+		}
+		$path = $dir . '/' . $name;
+		if ( false === file_put_contents( $path, $contents ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions
+			@rmdir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
+			return '';
+		}
+		return $path;
 	}
 
 	/** Sent when staff promote a waitlisted enrolment: only now does the enrolee get the promise. */
