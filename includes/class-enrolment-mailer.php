@@ -22,13 +22,13 @@ class Enrolment_Mailer {
 		}
 		$waitlisted   = (bool) array_filter( $rows, static fn( array $r ) => Installer::STATUS_WAITLISTED === $r['status'] );
 		$name         = trim( ( $values['first_name'] ?? '' ) . ' ' . ( $values['last_name'] ?? '' ) );
-		$expectations = class_exists( Expectation_Texts::class ) ? Expectation_Texts::for_enrolments( $rows, null !== $cycle ) : array();
+		$expectations = Expectation_Texts::for_enrolments( $rows, null !== $cycle );
 
 		$subject = $waitlisted
 			? __( 'Je staat op de wachtlijst', 'gezonder-in-werk-booking' )
 			: __( 'Je inschrijving is bevestigd', 'gezonder-in-werk-booking' );
 
-		$html  = Email_Template::render_confirmation_html( $values, $rows, $cycle, $expectations );
+		$html  = Email_Template::render_confirmation_html( $values, $rows, $cycle );
 		$plain = Email_Template::render_confirmation_plain( $values, $rows, $cycle, $expectations );
 		$mail->send( $values['email'], $subject, $html, $plain );
 
@@ -50,11 +50,10 @@ class Enrolment_Mailer {
 		if ( empty( $enrolment['email'] ) ) {
 			return;
 		}
-		$expectations = class_exists( Expectation_Texts::class ) ? Expectation_Texts::for_enrolments( array( $enrolment ), false ) : array();
+		$expectations = Expectation_Texts::for_enrolments( array( $enrolment ), false );
 		$subject      = __( 'Je inschrijving is bevestigd', 'gezonder-in-werk-booking' );
-		$html         = Email_Template::render_confirmation_html( $enrolment, array( $enrolment ), null, $expectations, true );
+		$html         = Email_Template::render_confirmation_html( $enrolment, array( $enrolment ), null, true );
 		$plain        = Email_Template::render_confirmation_plain( $enrolment, array( $enrolment ), null, $expectations, true );
 		$mail->send( $enrolment['email'], $subject, $html, $plain );
 	}
 }
-

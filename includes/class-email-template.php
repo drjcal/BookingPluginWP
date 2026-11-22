@@ -84,6 +84,8 @@ class Email_Template {
 			.gzw-text-muted { color: #a0aec0 !important; }
 			.gzw-divider { border-color: #2e353e !important; }
 			.gzw-table-row td, .gzw-table-row th { border-color: #2e353e !important; }
+			.gzw-badge-ok { background-color: #1c3320 !important; color: #8fd69a !important; }
+			.gzw-badge-wait { background-color: #3a2a12 !important; color: #f0b05a !important; }
 			.gzw-table-heading { background-color: #22272e !important; color: #f2f5f7 !important; border-color: #2e353e !important; }
 		}
 	</style>
@@ -137,14 +139,14 @@ class Email_Template {
 	 * Renders HTML for enrolee confirmation (single enrolment or cycle), or promotion confirmation.
 	 *
 	 * @param array<string,string> $values       Validated submission values (or enrolment row).
-	 * @param array[]              $rows         Enrolment rows with session and course data.
+	 * @param array[]              $enrolments   Enrolment rows with session and course data.
 	 * @param ?array               $cycle        Cycle row when this is a cycle enrolment.
-	 * @param string[]             $expectations Expectation text lines.
 	 * @param bool                 $is_promotion Whether this is a promotion email for a previously waitlisted seat.
 	 */
-	public static function render_confirmation_html( array $values, array $enrolments, ?array $cycle, array $expectations = array(), bool $is_promotion = false ): string {
+	public static function render_confirmation_html( array $values, array $enrolments, ?array $cycle, bool $is_promotion = false ): string {
 		$rows       = array_values( $enrolments );
 		$waitlisted = (bool) array_filter( $rows, static fn( array $r ) => Installer::STATUS_WAITLISTED === $r['status'] );
+		$all_waiting = self::all_waitlisted( $rows );
 		$first_name = $values['first_name'] ?? '';
 		$org_name   = Settings_Page::org_name();
 
@@ -159,9 +161,9 @@ class Email_Template {
 
 		ob_start();
 		?>
-		<h1 class="gzw-text-main" style="margin:0 0 16px 0;font-size:22px;font-weight:700;line-height:1.3;color:<?php echo self::COLOR_TEXT; ?>;">
+		<p class="gzw-text-main" style="margin:0 0 16px 0;font-size:22px;font-weight:700;line-height:1.3;color:<?php echo self::COLOR_TEXT; ?>;">
 			<?php echo esc_html( Enrolment_Messages::greeting( $first_name ) ); ?>
-		</h1>
+		</p>
 
 		<p class="gzw-text-main" style="margin:0 0 24px 0;font-size:16px;line-height:1.6;color:<?php echo self::COLOR_TEXT; ?>;">
 			<?php echo esc_html( $intro ); ?>
@@ -180,7 +182,7 @@ class Email_Template {
 			$start_time     = substr( $row['start_time'], 0, 5 );
 			$end_time       = substr( $row['end_time'], 0, 5 );
 			$time_loc       = sprintf( '%s, %s–%s, %s', $session_date, $start_time, $end_time, $row['location'] );
-			$expectation    = ( ! $row_waitlisted && class_exists( Expectation_Texts::class ) ) ? Expectation_Texts::for_session( $row ) : '';
+			$expectation    = ! $row_waitlisted ? Expectation_Texts::for_session( $row ) : '';
 			if ( '' !== $expectation && null !== $cycle ) {
 				$expectation = sprintf( '%s (%s): %s', $row['course_title'], $session_date, $expectation );
 			}
@@ -195,7 +197,7 @@ class Email_Template {
 							<?php echo esc_html( $time_loc ); ?>
 						</div>
 						<div style="margin-bottom:<?php echo ( null === $cycle || '' !== $expectation ) ? '10px' : '0'; ?>;">
-							<span style="display:inline-block;padding:3px 9px;font-size:12px;font-weight:600;border-radius:4px;background-color:<?php echo $row_waitlisted ? self::COLOR_BADGE_WAITLIST_BG : self::COLOR_BADGE_CONFIRMED_BG; ?>;color:<?php echo $row_waitlisted ? self::COLOR_BADGE_WAITLIST_TEXT : self::COLOR_BADGE_CONFIRMED_TEXT; ?>;">
+							<span class="<?php echo $row_waitlisted ? 'gzw-badge-wait' : 'gzw-badge-ok'; ?>" style="display:inline-block;padding:3px 9px;font-size:12px;font-weight:600;border-radius:4px;background-color:<?php echo $row_waitlisted ? self::COLOR_BADGE_WAITLIST_BG : self::COLOR_BADGE_CONFIRMED_BG; ?>;color:<?php echo $row_waitlisted ? self::COLOR_BADGE_WAITLIST_TEXT : self::COLOR_BADGE_CONFIRMED_TEXT; ?>;">
 								<?php echo esc_html( Labels::status( $row['status'] ) ); ?>
 							</span>
 						</div>
@@ -229,9 +231,9 @@ class Email_Template {
 		<!-- What next / cancellation terms -->
 		<div style="margin:24px 0;padding-top:8px;">
 			<p class="gzw-text-muted" style="margin:0 0 8px 0;font-size:14px;line-height:1.6;color:<?php echo self::COLOR_MUTED; ?>;">
-				<?php echo esc_html( Enrolment_Messages::what_next( $waitlisted ) ); ?>
+				<?php echo esc_html( Enrolment_Messages::what_next( $all_waiting ) ); ?>
 			</p>
-			<?php if ( ! $waitlisted ) : ?>
+			<?php if ( ! $all_waiting ) : ?>
 				<p style="margin:0;font-size:14px;line-height:1.6;">
 					<a href="<?php echo esc_url( Enrolment_Messages::cancellation_terms_url() ); ?>" target="_blank" style="color:<?php echo self::COLOR_ACCENT; ?>;text-decoration:underline;">
 						<?php echo esc_html( Enrolment_Messages::cancellation_terms_label() ); ?> &rarr;
@@ -335,7 +337,7 @@ class Email_Template {
 							<?php echo esc_html( $time_loc ); ?>
 						</div>
 						<div>
-							<span style="display:inline-block;padding:2px 8px;font-size:11px;font-weight:600;border-radius:4px;background-color:<?php echo ( Installer::STATUS_WAITLISTED === $row['status'] ) ? self::COLOR_BADGE_WAITLIST_BG : self::COLOR_BADGE_CONFIRMED_BG; ?>;color:<?php echo ( Installer::STATUS_WAITLISTED === $row['status'] ) ? self::COLOR_BADGE_WAITLIST_TEXT : self::COLOR_BADGE_CONFIRMED_TEXT; ?>;">
+							<span class="<?php echo ( Installer::STATUS_WAITLISTED === $row['status'] ) ? 'gzw-badge-wait' : 'gzw-badge-ok'; ?>" style="display:inline-block;padding:2px 8px;font-size:11px;font-weight:600;border-radius:4px;background-color:<?php echo ( Installer::STATUS_WAITLISTED === $row['status'] ) ? self::COLOR_BADGE_WAITLIST_BG : self::COLOR_BADGE_CONFIRMED_BG; ?>;color:<?php echo ( Installer::STATUS_WAITLISTED === $row['status'] ) ? self::COLOR_BADGE_WAITLIST_TEXT : self::COLOR_BADGE_CONFIRMED_TEXT; ?>;">
 								<?php echo esc_html( Labels::status( $row['status'] ) ); ?>
 							</span>
 							<?php if ( null === $cycle ) : ?>
@@ -405,28 +407,7 @@ class Email_Template {
 		$lines[] = $intro;
 		$lines[] = '';
 
-		if ( $cycle ) {
-			$lines[] = $cycle['title'];
-		}
-
-		$total = 0;
-		foreach ( $rows as $row ) {
-			$total += (int) $row['price_cents'];
-			$lines[] = sprintf(
-				'- %1$s – %2$s, %3$s–%4$s, %5$s – %6$s',
-				$row['course_title'],
-				mysql2date( 'd-m-Y', $row['session_date'] ),
-				substr( $row['start_time'], 0, 5 ),
-				substr( $row['end_time'], 0, 5 ),
-				$row['location'],
-				Labels::status( $row['status'] )
-			);
-		}
-
-		$lines[] = sprintf(
-			$cycle ? __( 'Prijs hele cyclus: %s excl. BTW', 'gezonder-in-werk-booking' ) : __( 'Prijs: %s excl. BTW', 'gezonder-in-werk-booking' ),
-			Labels::price( $total )
-		);
+		$lines = array_merge( $lines, self::plain_summary( $rows, $cycle ) );
 		$lines[] = '';
 
 		if ( ! empty( $expectations ) ) {
@@ -436,8 +417,9 @@ class Email_Template {
 			$lines[] = '';
 		}
 
-		$lines[] = Enrolment_Messages::what_next( $waitlisted );
-		if ( ! $waitlisted ) {
+		$all_waiting = self::all_waitlisted( $rows );
+		$lines[]     = Enrolment_Messages::what_next( $all_waiting );
+		if ( ! $all_waiting ) {
 			$lines[] = Enrolment_Messages::cancellation_terms_label() . ': ' . Enrolment_Messages::cancellation_terms_url();
 		}
 		$lines[] = '';
@@ -463,26 +445,7 @@ class Email_Template {
 		$lines[] = Enrolment_Messages::admin_intro( $name, $email, $employer );
 		$lines[] = '';
 		$lines[] = Enrolment_Messages::summary_heading() . ':';
-		if ( $cycle ) {
-			$lines[] = $cycle['title'];
-		}
-		$total = 0;
-		foreach ( $rows as $row ) {
-			$total += (int) $row['price_cents'];
-			$lines[] = sprintf(
-				'- %1$s – %2$s, %3$s–%4$s, %5$s – %6$s',
-				$row['course_title'],
-				mysql2date( 'd-m-Y', $row['session_date'] ),
-				substr( $row['start_time'], 0, 5 ),
-				substr( $row['end_time'], 0, 5 ),
-				$row['location'],
-				Labels::status( $row['status'] )
-			);
-		}
-		$lines[] = sprintf(
-			$cycle ? __( 'Prijs hele cyclus: %s excl. BTW', 'gezonder-in-werk-booking' ) : __( 'Prijs: %s excl. BTW', 'gezonder-in-werk-booking' ),
-			Labels::price( $total )
-		);
+		$lines   = array_merge( $lines, self::plain_summary( $rows, $cycle ) );
 		$lines[] = '';
 		$lines[] = sprintf( __( 'Bekijk de inschrijving: %s', 'gezonder-in-werk-booking' ), $admin_url );
 		$lines[] = '';
@@ -504,5 +467,41 @@ class Email_Template {
 		$lines[] = $contact;
 
 		return implode( "\n", $lines ) . "\n";
+	}
+
+	/** True when every row is waitlisted: only then is the neutral "no promises" wording right. */
+	private static function all_waitlisted( array $rows ): bool {
+		return $rows && ! array_filter( $rows, static fn( array $r ) => Installer::STATUS_WAITLISTED !== $r['status'] );
+	}
+
+	/**
+	 * Plain-text lines: cycle title, one line per session with its status, then the price (bundle total for a cycle).
+	 *
+	 * @param array[] $rows
+	 * @return string[]
+	 */
+	private static function plain_summary( array $rows, ?array $cycle ): array {
+		$lines = array();
+		if ( $cycle ) {
+			$lines[] = $cycle['title'];
+		}
+		$total = 0;
+		foreach ( $rows as $row ) {
+			$total  += (int) $row['price_cents'];
+			$lines[] = sprintf(
+				'- %1$s – %2$s, %3$s–%4$s, %5$s – %6$s',
+				$row['course_title'],
+				mysql2date( 'd-m-Y', $row['session_date'] ),
+				substr( $row['start_time'], 0, 5 ),
+				substr( $row['end_time'], 0, 5 ),
+				$row['location'],
+				Labels::status( $row['status'] )
+			);
+		}
+		$lines[] = sprintf(
+			$cycle ? __( 'Prijs hele cyclus: %s excl. BTW', 'gezonder-in-werk-booking' ) : __( 'Prijs: %s excl. BTW', 'gezonder-in-werk-booking' ),
+			Labels::price( $total )
+		);
+		return $lines;
 	}
 }

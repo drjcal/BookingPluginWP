@@ -35,6 +35,15 @@ class Settings_Page {
 			return;
 		}
 		wp_enqueue_media();
+		wp_enqueue_script( 'gzw-booking-settings', plugins_url( 'assets/settings.js', GZW_BOOKING_FILE ), array( 'jquery' ), VERSION, true );
+		wp_localize_script(
+			'gzw-booking-settings',
+			'gzwSettings',
+			array(
+				'title'  => __( 'Selecteer logo', 'gezonder-in-werk-booking' ),
+				'button' => __( 'Gebruik als logo', 'gezonder-in-werk-booking' ),
+			)
+		);
 	}
 
 	public static function register_settings(): void {
@@ -154,15 +163,13 @@ class Settings_Page {
 
 	/**
 	 * Absolute URL to the header logo, or '' when no logo is configured.
-	 * Checks attachment ID first, then direct URL setting.
+	 * Uses the attachment ID when set, otherwise the direct URL setting.
 	 */
 	public static function logo_url(): string {
 		$id = absint( get_option( self::OPTION_LOGO_ID, 0 ) );
 		if ( $id > 0 ) {
-			$url = wp_get_attachment_image_url( $id, 'full' );
-			if ( $url ) {
-				return $url;
-			}
+			// A chosen attachment wins; if it was deleted, show no logo rather than a stale URL.
+			return (string) wp_get_attachment_image_url( $id, 'full' );
 		}
 		$url = trim( (string) get_option( self::OPTION_LOGO_URL, '' ) );
 		return '' !== $url ? esc_url_raw( $url ) : '';
@@ -235,39 +242,6 @@ class Settings_Page {
 				<?php submit_button(); ?>
 			</form>
 		</div>
-		<script type="text/javascript">
-		jQuery(function($) {
-			var frame;
-			$('#gzw-logo-select-button').on('click', function(e) {
-				e.preventDefault();
-				if (frame) {
-					frame.open();
-					return;
-				}
-				frame = wp.media({
-					title: <?php echo wp_json_encode( __( 'Selecteer logo', 'gezonder-in-werk-booking' ) ); ?>,
-					button: { text: <?php echo wp_json_encode( __( 'Gebruik als logo', 'gezonder-in-werk-booking' ) ); ?> },
-					multiple: false,
-					library: { type: 'image' }
-				});
-				frame.on('select', function() {
-					var attachment = frame.state().get('selection').first().toJSON();
-					$('#gzw-logo-id').val(attachment.id);
-					$('#gzw-logo-url').val(attachment.url);
-					$('#gzw-logo-preview').attr('src', attachment.url).show();
-					$('#gzw-logo-remove-button').show();
-				});
-				frame.open();
-			});
-			$('#gzw-logo-remove-button').on('click', function(e) {
-				e.preventDefault();
-				$('#gzw-logo-id').val('');
-				$('#gzw-logo-url').val('');
-				$('#gzw-logo-preview').attr('src', '').hide();
-				$(this).hide();
-			});
-		});
-		</script>
 		<?php
 	}
 }

@@ -413,5 +413,45 @@ class EmailTest extends WP_UnitTestCase {
 		update_option( Settings_Page::OPTION_LOGO_URL, 'https://example.com/logo.png' );
 		$this->assertSame( 'https://example.com/logo.png', Settings_Page::logo_url() );
 	}
-}
 
+	public function test_promotion_sends_html_and_plain_confirmation_with_expectation_text(): void {
+		$recorder = new Gzw_Mail_Recorder();
+		Enrolment_Intake::use_mail_adapter( $recorder );
+
+		$id    = $this->session( 'Volle Nascholing', '2027-03-15', 1 );
+		$first = $this->submit( $this->valid( (string) $id, 'eerste@example.nl' ) );
+		$wait  = $this->submit( $this->valid( (string) $id, 'tweede@example.nl' ) );
+		$this->assertSame( 'waitlisted', $wait->get_data()['status'] );
+
+		Enrolment_Repository::update_admin( (int) $first->get_data()['id'], 'cancelled', false, '' );
+		$recorder->sent = array();
+		$this->assertSame( 'ok', Enrolment_Repository::promote( (int) $wait->get_data()['id'] ) );
+
+		$this->assertCount( 1, $recorder->sent );
+		$mail = $recorder->sent[0];
+		$this->assertSame( 'tweede@example.nl', $mail['to'] );
+		$this->assertStringContainsString( '<!DOCTYPE html', $mail['html'] );
+		$this->assertStringContainsString( 'er is een plek vrijgekomen', $mail['html'] );
+		$this->assertStringContainsString( 'Bevestigd', $mail['html'] );
+		$this->assertStringContainsString( 'gzw-email-expectation', $mail['html'] );
+		$this->assertStringContainsString( 'er is een plek vrijgekomen', $mail['plain'] );
+		$this->assertSame( strip_tags( $mail['plain'] ), $mail['plain'] );
+	}
+
+	public function test_cycle_with_one_full_session_still_links_the_cancellation_terms(): void {
+		$recorder = new Gzw_Mail_Recorder();
+		Enrolment_Intake::use_mail_adapter( $recorder );
+
+		$ids   = array( $this->session( 'Webinar Een', '2027-03-15' ), $this->session( 'Webinar Twee', '2027-04-15', 1 ) );
+		$cycle = Catalog_Repository::save_cycle( array( 'title' => 'Cyclus Y', 'price_cents' => 15000, 'session_ids' => $ids ) );
+		$this->submit( $this->valid( (string) $ids[1], 'bezet@example.nl' ) );
+		$recorder->sent = array();
+
+		$this->submit( $this->valid( 'cycle-' . $cycle ) );
+
+		$mail = $recorder->sent[0];
+		$this->assertStringContainsString( 'Annuleringsvoorwaarden bekijken', $mail['html'] );
+		$this->assertStringContainsString( 'Annuleringsvoorwaarden bekijken', $mail['plain'] );
+		$this->assertStringNotContainsString( 'Zodra er een plaats beschikbaar komt', $mail['html'] );
+	}
+}
