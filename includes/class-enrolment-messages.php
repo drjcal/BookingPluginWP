@@ -40,4 +40,50 @@ class Enrolment_Messages {
 	public static function no_session(): string {
 		return __( 'Kies een datum waarvoor je je wilt inschrijven.', 'gezonder-in-werk-booking' );
 	}
+
+	public static function greeting( string $first_name ): string {
+		return sprintf( __( 'Beste %s,', 'gezonder-in-werk-booking' ), $first_name );
+	}
+
+	public static function signoff(): string {
+		return __( 'Met vriendelijke groet,', 'gezonder-in-werk-booking' );
+	}
+
+	/**
+	 * Explains what happens next: for confirmed enrolments includes guidance on questions
+	 * and cancellation; for waitlisted keeps a neutral tone without promises.
+	 */
+	public static function what_next( bool $waitlisted ): string {
+		return $waitlisted
+			? __( 'Zodra er een plaats beschikbaar komt, nemen we direct contact met je op.', 'gezonder-in-werk-booking' )
+			: __( 'Heb je vragen over je inschrijving of ben je verhinderd? Bekijk onze annuleringsvoorwaarden of neem contact met ons op via onderstaande contactgegevens.', 'gezonder-in-werk-booking' );
+	}
+
+	public static function cancellation_terms_label(): string {
+		return __( 'Annuleringsvoorwaarden bekijken', 'gezonder-in-werk-booking' );
+	}
+
+	public static function cancellation_terms_url(): string {
+		return 'https://gezonderinwerk.nl/wp-content/uploads/2026/01/Algemene-Voorwaarden-Nascholingen-Gezonder-in-Werk-januari-2026.pdf';
+	}
+
+	public static function promotion_intro(): string {
+		return __( 'Goed nieuws: er is een plek vrijgekomen en je inschrijving is nu bevestigd.', 'gezonder-in-werk-booking' );
+	}
+
+	public static function admin_intro( string $name, string $email, string $employer ): string {
+		return sprintf( __( 'Nieuwe inschrijving van %1$s (%2$s), %3$s.', 'gezonder-in-werk-booking' ), $name, $email, $employer );
+	}
+
+	public static function admin_view_button_label(): string {
+		return __( 'Bekijk de inschrijving in WordPress', 'gezonder-in-werk-booking' );
+	}
+
+	public static function admin_fields_heading(): string {
+		return __( 'Ingezonden gegevens', 'gezonder-in-werk-booking' );
+	}
+
+	public static function summary_heading(): string {
+		return __( 'Details van je inschrijving', 'gezonder-in-werk-booking' );
+	}
 }

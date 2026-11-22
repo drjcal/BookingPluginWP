@@ -4,8 +4,8 @@ namespace GezonderInWerk\Booking;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Plain-text e-mails after a submission, sent through a Mail_Adapter:
- * one confirmation to the enrolee and one notification to the admin address, also for cycles.
+ * Branded HTML e-mails with plain-text alternative after a submission, sent through a Mail_Adapter:
+ * one confirmation to the enrolee and one notification to the admin address, also for cycles and promotions.
  */
 class Enrolment_Mailer {
 
@@ -20,33 +20,29 @@ class Enrolment_Mailer {
 		if ( ! $rows ) {
 			return;
 		}
-		$waitlisted = (bool) array_filter( $rows, static fn( array $r ) => Installer::STATUS_WAITLISTED === $r['status'] );
-		$name       = trim( $values['first_name'] . ' ' . $values['last_name'] );
-		$summary    = self::summary( $rows, $cycle );
+		$waitlisted   = (bool) array_filter( $rows, static fn( array $r ) => Installer::STATUS_WAITLISTED === $r['status'] );
+		$name         = trim( ( $values['first_name'] ?? '' ) . ' ' . ( $values['last_name'] ?? '' ) );
+		$expectations = class_exists( Expectation_Texts::class ) ? Expectation_Texts::for_enrolments( $rows, null !== $cycle ) : array();
 
 		$subject = $waitlisted
 			? __( 'Je staat op de wachtlijst', 'gezonder-in-werk-booking' )
 			: __( 'Je inschrijving is bevestigd', 'gezonder-in-werk-booking' );
-		$body    = sprintf( __( 'Beste %s,', 'gezonder-in-werk-booking' ), $values['first_name'] ) . "\n\n"
-			. Enrolment_Messages::outcome( null !== $cycle, $waitlisted ) . "\n\n"
-			. self::expectations_block( Expectation_Texts::for_enrolments( $rows, null !== $cycle ) )
-			. $summary . "\n"
-			. __( 'Met vriendelijke groet,', 'gezonder-in-werk-booking' ) . "\n" . get_bloginfo( 'name' ) . "\n";
-		$mail->send( $values['email'], $subject, $body );
 
-		$admin_body = sprintf( __( 'Nieuwe inschrijving van %1$s (%2$s), %3$s.', 'gezonder-in-werk-booking' ), $name, $values['email'], $values['employer'] ) . "\n\n"
-			. $summary . "\n"
-			. sprintf( __( 'Bekijk de inschrijving: %s', 'gezonder-in-werk-booking' ), add_query_arg( array( 'page' => Enrolments_Admin::SLUG, 'enrolment' => $rows[0]['id'] ), admin_url( 'admin.php' ) ) ) . "\n";
+		$html  = Email_Template::render_confirmation_html( $values, $rows, $cycle, $expectations );
+		$plain = Email_Template::render_confirmation_plain( $values, $rows, $cycle, $expectations );
+		$mail->send( $values['email'], $subject, $html, $plain );
+
+		$admin_url     = add_query_arg( array( 'page' => Enrolments_Admin::SLUG, 'enrolment' => $rows[0]['id'] ), admin_url( 'admin.php' ) );
+		$admin_subject = sprintf( __( 'Nieuwe inschrijving: %s', 'gezonder-in-werk-booking' ), $name );
+		$admin_html    = Email_Template::render_admin_notification_html( $values, $rows, $cycle, $admin_url );
+		$admin_plain   = Email_Template::render_admin_notification_plain( $values, $rows, $cycle, $admin_url );
+
 		$mail->send(
 			Settings_Page::notification_email(),
-			sprintf( __( 'Nieuwe inschrijving: %s', 'gezonder-in-werk-booking' ), $name ),
-			$admin_body
+			$admin_subject,
+			$admin_html,
+			$admin_plain
 		);
-	}
-
-	/** @param string[] $lines */
-	private static function expectations_block( array $lines ): string {
-		return $lines ? implode( "\n", $lines ) . "\n\n" : '';
 	}
 
 	/** Sent when staff promote a waitlisted enrolment: only now does the enrolee get the promise. */
@@ -54,39 +50,11 @@ class Enrolment_Mailer {
 		if ( empty( $enrolment['email'] ) ) {
 			return;
 		}
-		$lines = Expectation_Texts::for_enrolments( array( $enrolment ), false );
-		$body  = sprintf( __( 'Beste %s,', 'gezonder-in-werk-booking' ), $enrolment['first_name'] ) . "\n\n"
-			. __( 'Goed nieuws: er is een plek vrijgekomen en je inschrijving is nu bevestigd.', 'gezonder-in-werk-booking' ) . "\n\n"
-			. self::summary( array( $enrolment ), null ) . "\n"
-			. self::expectations_block( $lines )
-			. __( 'Met vriendelijke groet,', 'gezonder-in-werk-booking' ) . "\n" . get_bloginfo( 'name' ) . "\n";
-		$mail->send( $enrolment['email'], __( 'Je inschrijving is bevestigd', 'gezonder-in-werk-booking' ), $body );
-	}
-
-	/** One line per webinar/session with its own status, plus the price (bundle total for a cycle). */
-	private static function summary( array $rows, ?array $cycle ): string {
-		$lines = array();
-		if ( $cycle ) {
-			$lines[] = $cycle['title'];
-		}
-		$total = 0;
-		foreach ( $rows as $row ) {
-			$total  += (int) $row['price_cents'];
-			$lines[] = sprintf(
-				'- %1$s – %2$s, %3$s–%4$s, %5$s – %6$s',
-				$row['course_title'],
-				mysql2date( 'd-m-Y', $row['session_date'] ),
-				substr( $row['start_time'], 0, 5 ),
-				substr( $row['end_time'], 0, 5 ),
-				$row['location'],
-				Labels::status( $row['status'] )
-			);
-		}
-		$lines[] = sprintf(
-			/* translators: %s: price */
-			$cycle ? __( 'Prijs hele cyclus: %s excl. BTW', 'gezonder-in-werk-booking' ) : __( 'Prijs: %s excl. BTW', 'gezonder-in-werk-booking' ),
-			Labels::price( $total )
-		);
-		return implode( "\n", $lines ) . "\n";
+		$expectations = class_exists( Expectation_Texts::class ) ? Expectation_Texts::for_enrolments( array( $enrolment ), false ) : array();
+		$subject      = __( 'Je inschrijving is bevestigd', 'gezonder-in-werk-booking' );
+		$html         = Email_Template::render_confirmation_html( $enrolment, array( $enrolment ), null, $expectations, true );
+		$plain        = Email_Template::render_confirmation_plain( $enrolment, array( $enrolment ), null, $expectations, true );
+		$mail->send( $enrolment['email'], $subject, $html, $plain );
 	}
 }
+

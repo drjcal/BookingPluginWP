@@ -11,6 +11,10 @@ class Settings_Page {
 	const SLUG                      = 'gzw-settings';
 	const OPTION_NOTIFICATION_EMAIL = 'gzw_booking_notification_email';
 	const OPTION_RETENTION_MONTHS   = 'gzw_booking_retention_months';
+	const OPTION_LOGO_ID            = 'gzw_booking_logo_id';
+	const OPTION_LOGO_URL           = 'gzw_booking_logo_url';
+	const OPTION_ORG_NAME           = 'gzw_booking_org_name';
+	const OPTION_CONTACT_EMAIL      = 'gzw_booking_contact_email';
 
 	const DEFAULT_RETENTION_MONTHS = 24;
 	const MAX_RETENTION_MONTHS     = 120;
@@ -26,6 +30,13 @@ class Settings_Page {
 		);
 	}
 
+	public static function enqueue_scripts( string $hook ): void {
+		if ( false === strpos( $hook, self::SLUG ) ) {
+			return;
+		}
+		wp_enqueue_media();
+	}
+
 	public static function register_settings(): void {
 		register_setting(
 			'gzw_settings',
@@ -33,6 +44,42 @@ class Settings_Page {
 			array(
 				'type'              => 'string',
 				'sanitize_callback' => array( self::class, 'sanitize_email' ),
+				'default'           => '',
+			)
+		);
+		register_setting(
+			'gzw_settings',
+			self::OPTION_CONTACT_EMAIL,
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => array( self::class, 'sanitize_email' ),
+				'default'           => 'info@gezonderinwerk.nl',
+			)
+		);
+		register_setting(
+			'gzw_settings',
+			self::OPTION_ORG_NAME,
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => 'sanitize_text_field',
+				'default'           => '',
+			)
+		);
+		register_setting(
+			'gzw_settings',
+			self::OPTION_LOGO_ID,
+			array(
+				'type'              => 'integer',
+				'sanitize_callback' => 'absint',
+				'default'           => 0,
+			)
+		);
+		register_setting(
+			'gzw_settings',
+			self::OPTION_LOGO_URL,
+			array(
+				'type'              => 'string',
+				'sanitize_callback' => 'esc_url_raw',
 				'default'           => '',
 			)
 		);
@@ -83,10 +130,50 @@ class Settings_Page {
 		return '' !== $email ? $email : (string) get_option( 'admin_email' );
 	}
 
+	/** Organisation name shown in email header (fallback) and footer. */
+	public static function org_name(): string {
+		$name = trim( (string) get_option( self::OPTION_ORG_NAME, '' ) );
+		if ( '' !== $name ) {
+			return $name;
+		}
+		$site_name = trim( (string) get_bloginfo( 'name' ) );
+		return '' !== $site_name ? $site_name : 'Gezonder in Werk B.V.';
+	}
+
+	/** Contact address shown in email footer; defaults to info@gezonderinwerk.nl. */
+	public static function contact_email(): string {
+		$email = self::sanitize_email( get_option( self::OPTION_CONTACT_EMAIL, '' ) );
+		return '' !== $email ? $email : 'info@gezonderinwerk.nl';
+	}
+
+	/** Public website URL linked from email header and footer. */
+	public static function website_url(): string {
+		$url = (string) home_url( '/' );
+		return '' !== $url ? $url : 'https://gezonderinwerk.nl';
+	}
+
+	/**
+	 * Absolute URL to the header logo, or '' when no logo is configured.
+	 * Checks attachment ID first, then direct URL setting.
+	 */
+	public static function logo_url(): string {
+		$id = absint( get_option( self::OPTION_LOGO_ID, 0 ) );
+		if ( $id > 0 ) {
+			$url = wp_get_attachment_image_url( $id, 'full' );
+			if ( $url ) {
+				return $url;
+			}
+		}
+		$url = trim( (string) get_option( self::OPTION_LOGO_URL, '' ) );
+		return '' !== $url ? esc_url_raw( $url ) : '';
+	}
+
 	public static function render(): void {
 		if ( ! current_user_can( Admin_Page::CAP ) ) {
 			wp_die( esc_html__( 'Geen toegang.', 'gezonder-in-werk-booking' ), 403 );
 		}
+		$logo_url = self::logo_url();
+		$logo_id  = absint( get_option( self::OPTION_LOGO_ID, 0 ) );
 		?>
 		<div class="wrap">
 			<h1><?php esc_html_e( 'Instellingen', 'gezonder-in-werk-booking' ); ?></h1>
@@ -98,6 +185,33 @@ class Settings_Page {
 						<td>
 							<input type="email" id="gzw-notification-email" class="regular-text" name="<?php echo esc_attr( self::OPTION_NOTIFICATION_EMAIL ); ?>" value="<?php echo esc_attr( (string) get_option( self::OPTION_NOTIFICATION_EMAIL, '' ) ); ?>" placeholder="<?php echo esc_attr( (string) get_option( 'admin_email' ) ); ?>" />
 							<p class="description"><?php esc_html_e( 'Dit adres ontvangt een e-mail bij elke nieuwe inschrijving. Leeg laten gebruikt het beheerdersadres van de site.', 'gezonder-in-werk-booking' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="gzw-contact-email"><?php esc_html_e( 'Contact e-mailadres', 'gezonder-in-werk-booking' ); ?></label></th>
+						<td>
+							<input type="email" id="gzw-contact-email" class="regular-text" name="<?php echo esc_attr( self::OPTION_CONTACT_EMAIL ); ?>" value="<?php echo esc_attr( (string) get_option( self::OPTION_CONTACT_EMAIL, '' ) ); ?>" placeholder="info@gezonderinwerk.nl" />
+							<p class="description"><?php esc_html_e( 'Dit adres wordt getoond in de voettekst van bevestigingsmails. Standaard: info@gezonderinwerk.nl.', 'gezonder-in-werk-booking' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="gzw-org-name"><?php esc_html_e( 'Organisatienaam', 'gezonder-in-werk-booking' ); ?></label></th>
+						<td>
+							<input type="text" id="gzw-org-name" class="regular-text" name="<?php echo esc_attr( self::OPTION_ORG_NAME ); ?>" value="<?php echo esc_attr( (string) get_option( self::OPTION_ORG_NAME, '' ) ); ?>" placeholder="<?php echo esc_attr( get_bloginfo( 'name' ) ?: 'Gezonder in Werk B.V.' ); ?>" />
+							<p class="description"><?php esc_html_e( 'Wordt getoond in de koptekst (als tekst-terugval zonder logo) en in de voettekst van alle e-mails.', 'gezonder-in-werk-booking' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th><label for="gzw-logo-select-button"><?php esc_html_e( 'Logo in e-mails', 'gezonder-in-werk-booking' ); ?></label></th>
+						<td>
+							<input type="hidden" id="gzw-logo-id" name="<?php echo esc_attr( self::OPTION_LOGO_ID ); ?>" value="<?php echo esc_attr( $logo_id ? (string) $logo_id : '' ); ?>" />
+							<input type="hidden" id="gzw-logo-url" name="<?php echo esc_attr( self::OPTION_LOGO_URL ); ?>" value="<?php echo esc_attr( (string) get_option( self::OPTION_LOGO_URL, '' ) ); ?>" />
+							<div id="gzw-logo-preview-wrap" style="margin-bottom: 10px;">
+								<img id="gzw-logo-preview" src="<?php echo esc_url( $logo_url ); ?>" alt="<?php esc_attr_e( 'Logo voorbeeld', 'gezonder-in-werk-booking' ); ?>" style="max-width: 200px; height: auto; display: <?php echo $logo_url ? 'block' : 'none'; ?>; border: 1px solid #ddd; padding: 4px; background: #fff;" />
+							</div>
+							<button type="button" id="gzw-logo-select-button" class="button"><?php esc_html_e( 'Selecteer logo uit mediabibliotheek', 'gezonder-in-werk-booking' ); ?></button>
+							<button type="button" id="gzw-logo-remove-button" class="button" style="display: <?php echo $logo_url ? 'inline-block' : 'none'; ?>;"><?php esc_html_e( 'Verwijder logo', 'gezonder-in-werk-booking' ); ?></button>
+							<p class="description"><?php esc_html_e( 'Kies een logo uit de WordPress mediabibliotheek (ca. 160–200 px breed, bij voorkeur transparante achtergrond). Zonder logo wordt de organisatienaam als tekst getoond.', 'gezonder-in-werk-booking' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -121,6 +235,39 @@ class Settings_Page {
 				<?php submit_button(); ?>
 			</form>
 		</div>
+		<script type="text/javascript">
+		jQuery(function($) {
+			var frame;
+			$('#gzw-logo-select-button').on('click', function(e) {
+				e.preventDefault();
+				if (frame) {
+					frame.open();
+					return;
+				}
+				frame = wp.media({
+					title: <?php echo wp_json_encode( __( 'Selecteer logo', 'gezonder-in-werk-booking' ) ); ?>,
+					button: { text: <?php echo wp_json_encode( __( 'Gebruik als logo', 'gezonder-in-werk-booking' ) ); ?> },
+					multiple: false,
+					library: { type: 'image' }
+				});
+				frame.on('select', function() {
+					var attachment = frame.state().get('selection').first().toJSON();
+					$('#gzw-logo-id').val(attachment.id);
+					$('#gzw-logo-url').val(attachment.url);
+					$('#gzw-logo-preview').attr('src', attachment.url).show();
+					$('#gzw-logo-remove-button').show();
+				});
+				frame.open();
+			});
+			$('#gzw-logo-remove-button').on('click', function(e) {
+				e.preventDefault();
+				$('#gzw-logo-id').val('');
+				$('#gzw-logo-url').val('');
+				$('#gzw-logo-preview').attr('src', '').hide();
+				$(this).hide();
+			});
+		});
+		</script>
 		<?php
 	}
 }
