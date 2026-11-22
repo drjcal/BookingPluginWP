@@ -310,11 +310,13 @@ class PrivacyTest extends WP_UnitTestCase {
 	}
 
 	public function test_sessions_in_a_cycle_stay_non_deletable_and_the_notice_says_why(): void {
-		Catalog_Repository::save_cycle( array( 'title' => 'Cyclus', 'price_cents' => 20000, 'session_ids' => array( $this->session ) ) );
+		// A cycle needs at least two sessions.
+		$other = $this->make_session( $this->course, '2027-04-15' );
+		Catalog_Repository::save_cycle( array( 'title' => 'Cyclus', 'price_cents' => 20000, 'session_ids' => array( $this->session, $other ) ) );
 
 		$this->assertFalse( Catalog_Repository::delete_session( $this->session ) );
 		$this->assertFalse( Catalog_Repository::delete_course( $this->course ) );
-		$this->assertCount( 1, Catalog_Repository::sessions_for_course( $this->course ) );
+		$this->assertCount( 2, Catalog_Repository::sessions_for_course( $this->course ) );
 
 		$this->as_admin();
 		$_GET = array( 'gzw_notice' => 'in_use' );

@@ -43,7 +43,7 @@ class Enrolments_Admin {
 
 		$result = 'error';
 		if ( $id && in_array( $status, Enrolment_Repository::STATUSES, true ) ) {
-			$result = Enrolment_Repository::update_admin( $id, $status, $flag, $note );
+			$result = Seat_Allocation::update_admin( $id, $status, $flag, $note );
 		}
 		self::back_to_detail( $id, $result );
 	}
@@ -54,7 +54,7 @@ class Enrolments_Admin {
 		}
 		check_admin_referer( 'gzw_promote_enrolment' );
 		$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification -- checked above.
-		self::back_to_detail( $id, Enrolment_Repository::promote( $id ) );
+		self::back_to_detail( $id, Seat_Allocation::promote( $id ) );
 	}
 
 	/** Staff erase an enrolment and its personal data (the whole group for a cycle submission). */
@@ -77,7 +77,7 @@ class Enrolments_Admin {
 		exit;
 	}
 
-	/** @param string $result ok | full | error */
+	/** @param string $result ok | full | busy | error */
 	private static function back_to_detail( int $id, string $result ): void {
 		wp_safe_redirect(
 			add_query_arg(
@@ -104,6 +104,8 @@ class Enrolments_Admin {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Inschrijving en persoonsgegevens verwijderd.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		} elseif ( 'full' === $notice ) {
 			echo '<div class="notice notice-error"><p>' . esc_html__( 'Geen vrije plek: annuleer eerst een bevestigde inschrijving of verhoog de capaciteit.', 'gezonder-in-werk-booking' ) . '</p></div>';
+		} elseif ( 'busy' === $notice ) {
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'Even geduld: deze datum wordt op dit moment bijgewerkt. Er is niets gewijzigd; probeer het over een paar seconden opnieuw.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		} elseif ( 'error' === $notice ) {
 			echo '<div class="notice notice-error"><p>' . esc_html__( 'Opslaan mislukt.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		}
