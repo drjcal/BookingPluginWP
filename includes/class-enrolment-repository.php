@@ -82,6 +82,10 @@ class Enrolment_Repository {
 			$where[] = 'e.session_id = %d';
 			$args[]  = (int) $filters['session'];
 		}
+		if ( ! empty( $filters['group'] ) ) {
+			$where[] = 'e.group_reference = %s';
+			$args[]  = (string) $filters['group'];
+		}
 		if ( ! empty( $filters['status'] ) ) {
 			$where[] = 'e.status = %s';
 			$args[]  = (string) $filters['status'];
@@ -128,6 +132,19 @@ class Enrolment_Repository {
 	/** @see Seat_Allocation::promote() */
 	public static function promote( int $id ): string {
 		return Seat_Allocation::promote( $id );
+	}
+
+	/**
+	 * Bundle price of a cycle submission: the sum over the group, cancelled enrolments included,
+	 * so cancelling the enrolment that carries the price does not hide it. 0 for no group.
+	 */
+	public static function group_total( string $reference ): int {
+		global $wpdb;
+		if ( '' === $reference ) {
+			return 0;
+		}
+		$table = Installer::table_name();
+		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(price_cents), 0) FROM {$table} WHERE group_reference = %s", $reference ) ); // phpcs:ignore WordPress.DB.PreparedSQL -- table from Installer.
 	}
 
 	/** Ids of the enrolments that belong together: a cycle submission shares a group reference. */

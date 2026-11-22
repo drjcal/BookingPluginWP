@@ -76,7 +76,7 @@ class Enrolments_Export {
 			array(
 				array( __( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ), static fn( array $row ) => Labels::price( (int) $row['price_cents'] ) ),
 				array( __( 'Status', 'gezonder-in-werk-booking' ), static fn( array $row ) => Labels::status( $row['status'] ) ),
-				array( __( 'Gefactureerd', 'gezonder-in-werk-booking' ), static fn( array $row ) => (int) $row['invoiced'] ? __( 'Ja', 'gezonder-in-werk-booking' ) : __( 'Nee', 'gezonder-in-werk-booking' ) ),
+				array( __( 'Gefactureerd', 'gezonder-in-werk-booking' ), array( Labels::class, 'invoiced' ) ),
 				array( __( 'Interne notitie', 'gezonder-in-werk-booking' ), static fn( array $row ) => (string) $row['internal_note'] ),
 			)
 		);

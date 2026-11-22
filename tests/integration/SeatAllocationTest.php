@@ -4,6 +4,7 @@ use GezonderInWerk\Booking\Catalog_Repository;
 use GezonderInWerk\Booking\Enrolment_Repository;
 use GezonderInWerk\Booking\Enrolments_Admin;
 use GezonderInWerk\Booking\Installer;
+use GezonderInWerk\Booking\Seat_Allocation;
 use GezonderInWerk\Booking\Session_Lock;
 
 /**
@@ -95,6 +96,42 @@ class SeatAllocationTest extends WP_UnitTestCase {
 	}
 
 	// --- Lock timeout ------------------------------------------------------------------------
+
+	public function test_session_admin_shows_seats_and_waitlist_for_each_date(): void {
+		$session = $this->make_session( array( 'capacity' => 1 ) );
+		foreach ( array( 'a', 'b' ) as $n ) {
+			Seat_Allocation::enrol( $this->params( (string) $session, "{$n}@example.nl" ) );
+		}
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+		$_GET = array( 'course' => (string) $this->course );
+		ob_start();
+		try {
+			Admin_Page::render();
+		} finally {
+			$html = ob_get_clean();
+			$_GET = array();
+		}
+
+		$this->assertStringContainsString( '1 van 1 bevestigd, 1 op wachtlijst', $html );
+	}
+
+	public function test_availability_reports_confirmed_capacity_and_waitlist(): void {
+		$session = $this->make_session( array( 'capacity' => 2 ) );
+		foreach ( array( 'a', 'b', 'c' ) as $n ) {
+			Seat_Allocation::enrol( array( 'session_id' => (string) $session, 'email' => "{$n}@example.nl" ) + $this->params( (string) $session, "{$n}@example.nl" ) );
+		}
+
+		$this->assertSame(
+			array( 'confirmed' => 2, 'capacity' => 2, 'waitlisted' => 1 ),
+			Seat_Allocation::availability( $session )
+		);
+	}
+
+	public function test_availability_of_an_unlimited_session_has_no_capacity(): void {
+		$session = $this->make_session();
+
+		$this->assertSame( array( 'confirmed' => 0, 'capacity' => null, 'waitlisted' => 0 ), Seat_Allocation::availability( $session ) );
+	}
 
 	public function test_a_lock_timeout_gives_the_enrolee_a_retryable_message_and_stores_nothing(): void {
 		$session = $this->make_session();
