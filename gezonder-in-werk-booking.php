@@ -32,6 +32,7 @@ require_once __DIR__ . '/includes/class-retention.php';
 require_once __DIR__ . '/includes/class-rest-controller.php';
 require_once __DIR__ . '/includes/class-enrolments-admin.php';
 require_once __DIR__ . '/includes/class-mail-adapter.php';
+require_once __DIR__ . '/includes/class-email-template.php';
 require_once __DIR__ . '/includes/class-enrolment-mailer.php';
 require_once __DIR__ . '/includes/class-enrolment-intake.php';
 require_once __DIR__ . '/includes/class-form-shortcode.php';
@@ -56,6 +57,7 @@ add_action( 'admin_post_gzw_delete_session', array( Admin_Page::class, 'handle_d
 add_action( 'admin_menu', array( Cycles_Admin::class, 'register_menu' ) );
 add_action( 'admin_menu', array( Settings_Page::class, 'register_menu' ) );
 add_action( 'admin_init', array( Settings_Page::class, 'register_settings' ) );
+add_action( 'admin_enqueue_scripts', array( Settings_Page::class, 'enqueue_scripts' ) );
 add_action( 'admin_post_gzw_save_cycle', array( Cycles_Admin::class, 'handle_save' ) );
 add_action( 'admin_post_gzw_delete_cycle', array( Cycles_Admin::class, 'handle_delete' ) );
 add_action( 'admin_menu', array( Enrolments_Admin::class, 'register_menu' ) );
