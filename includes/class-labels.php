@@ -41,6 +41,18 @@ class Labels {
 		return $confirmed . ', ' . sprintf( __( '%d op wachtlijst', 'gezonder-in-werk-booking' ), $availability['waitlisted'] );
 	}
 
+	public static function seats_heading(): string {
+		return __( 'Plekken', 'gezonder-in-werk-booking' );
+	}
+
+	public static function invoiced_heading(): string {
+		return __( 'Gefactureerd', 'gezonder-in-werk-booking' );
+	}
+
+	public static function group_total_heading(): string {
+		return __( 'Totaalprijs cyclus excl. BTW', 'gezonder-in-werk-booking' );
+	}
+
 	/** "Gefactureerd" cell: Ja / Nee. */
 	public static function invoiced( array $row ): string {
 		return (int) $row['invoiced'] ? __( 'Ja', 'gezonder-in-werk-booking' ) : __( 'Nee', 'gezonder-in-werk-booking' );

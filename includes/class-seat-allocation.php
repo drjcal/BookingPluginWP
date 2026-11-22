@@ -152,10 +152,10 @@ class Seat_Allocation {
 	}
 
 	/**
-	 * Seat picture of a session for staff: confirmed seats, capacity, waitlist and free seats.
-	 * Capacity and free are null when the session is unlimited. Read-only, takes no lock.
+	 * Seat picture of a session for staff: confirmed seats, capacity and waitlist.
+	 * Capacity is null when the session is unlimited. Read-only, takes no lock.
 	 *
-	 * @return array{confirmed:int,capacity:?int,waitlisted:int,free:?int}
+	 * @return array{confirmed:int,capacity:?int,waitlisted:int}
 	 */
 	public static function availability( int $session_id ): array {
 		global $wpdb;
@@ -170,7 +170,6 @@ class Seat_Allocation {
 			'confirmed'  => $confirmed,
 			'capacity'   => $capacity,
 			'waitlisted' => $waitlist,
-			'free'       => null === $capacity ? null : max( 0, $capacity - $confirmed ),
 		);
 	}
 

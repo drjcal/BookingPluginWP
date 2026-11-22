@@ -115,22 +115,22 @@ class SeatAllocationTest extends WP_UnitTestCase {
 		$this->assertStringContainsString( '1 van 1 bevestigd, 1 op wachtlijst', $html );
 	}
 
-	public function test_availability_reports_confirmed_capacity_waitlist_and_free_seats(): void {
+	public function test_availability_reports_confirmed_capacity_and_waitlist(): void {
 		$session = $this->make_session( array( 'capacity' => 2 ) );
 		foreach ( array( 'a', 'b', 'c' ) as $n ) {
 			Seat_Allocation::enrol( array( 'session_id' => (string) $session, 'email' => "{$n}@example.nl" ) + $this->params( (string) $session, "{$n}@example.nl" ) );
 		}
 
 		$this->assertSame(
-			array( 'confirmed' => 2, 'capacity' => 2, 'waitlisted' => 1, 'free' => 0 ),
+			array( 'confirmed' => 2, 'capacity' => 2, 'waitlisted' => 1 ),
 			Seat_Allocation::availability( $session )
 		);
 	}
 
-	public function test_availability_of_an_unlimited_session_has_no_capacity_and_unlimited_free_seats(): void {
+	public function test_availability_of_an_unlimited_session_has_no_capacity(): void {
 		$session = $this->make_session();
 
-		$this->assertSame( array( 'confirmed' => 0, 'capacity' => null, 'waitlisted' => 0, 'free' => null ), Seat_Allocation::availability( $session ) );
+		$this->assertSame( array( 'confirmed' => 0, 'capacity' => null, 'waitlisted' => 0 ), Seat_Allocation::availability( $session ) );
 	}
 
 	public function test_a_lock_timeout_gives_the_enrolee_a_retryable_message_and_stores_nothing(): void {

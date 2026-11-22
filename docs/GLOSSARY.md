@@ -12,4 +12,4 @@ Dutch UI labels are in brackets.
 | **Waitlist** (Wachtlijst) | The `waitlisted` status: the Session is full, so the Enrolment is not confirmed yet. Staff promote it to confirmed by hand when a seat frees up. |
 | **Billing details** (Factuurgegevens) | The invoice fields of an Enrolment (for example company and invoice address), kept apart from the participant's personal details. |
 | **Group reference** | A shared reference on the Enrolments created by one Cycle submission, so they can be handled together (for example deletion and anonymisation). |
-| **Labels** | The single module (`Labels`) that owns enrolment wording and formatting: status, session, date and price. |
+| **Labels** | The single module (`Labels`) that owns enrolment wording and formatting: status, session, date, price, seat counts and the invoiced state. |

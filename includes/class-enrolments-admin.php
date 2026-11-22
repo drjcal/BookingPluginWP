@@ -151,15 +151,16 @@ class Enrolments_Admin {
 		foreach ( $columns as $field ) {
 			echo '<th>' . esc_html( $field['label'] ) . '</th>';
 		}
-		foreach ( array( __( 'Sessie', 'gezonder-in-werk-booking' ), __( 'Plekken', 'gezonder-in-werk-booking' ), __( 'Status', 'gezonder-in-werk-booking' ), __( 'Gefactureerd', 'gezonder-in-werk-booking' ), __( 'Ingeschreven op', 'gezonder-in-werk-booking' ) ) as $heading ) {
+		$extra = array( __( 'Sessie', 'gezonder-in-werk-booking' ), Labels::seats_heading(), __( 'Status', 'gezonder-in-werk-booking' ), Labels::invoiced_heading(), __( 'Ingeschreven op', 'gezonder-in-werk-booking' ) );
+		foreach ( $extra as $heading ) {
 			echo '<th>' . esc_html( $heading ) . '</th>';
 		}
 		echo '</tr></thead><tbody>';
 		if ( ! $result['rows'] ) {
-			echo '<tr><td colspan="' . esc_attr( (string) ( count( $columns ) + 5 ) ) . '">' . esc_html__( 'Geen inschrijvingen gevonden.', 'gezonder-in-werk-booking' ) . '</td></tr>';
+			echo '<tr><td colspan="' . esc_attr( (string) ( count( $columns ) + count( $extra ) ) ) . '">' . esc_html__( 'Geen inschrijvingen gevonden.', 'gezonder-in-werk-booking' ) . '</td></tr>';
 		}
 		$first = array_key_first( $columns );
-		$seats = array();
+		$seat_labels = array();
 		foreach ( $result['rows'] as $row ) {
 			$detail = add_query_arg( array( 'page' => self::SLUG, 'enrolment' => $row['id'] ), admin_url( 'admin.php' ) );
 			echo '<tr>';
@@ -173,11 +174,11 @@ class Enrolments_Admin {
 				echo '<td>' . $value . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped above.
 			}
 			$session_id = (int) $row['session_id'];
-			if ( ! isset( $seats[ $session_id ] ) ) {
-				$seats[ $session_id ] = ! empty( $row['course_title'] ) ? Labels::seats( Seat_Allocation::availability( $session_id ) ) : '';
+			if ( ! isset( $seat_labels[ $session_id ] ) ) {
+				$seat_labels[ $session_id ] = null !== $row['session_date'] ? Labels::seats( Seat_Allocation::availability( $session_id ) ) : '';
 			}
 			echo '<td>' . esc_html( Labels::enrolment_session( $row ) ) . '</td>';
-			echo '<td>' . esc_html( $seats[ $session_id ] ) . '</td>';
+			echo '<td>' . esc_html( $seat_labels[ $session_id ] ) . '</td>';
 			echo '<td>' . esc_html( Labels::status( $row['status'] ) ) . '</td>';
 			echo '<td>' . esc_html( Labels::invoiced( $row ) ) . '</td>';
 			echo '<td>' . esc_html( Labels::created( $row ) ) . '</td>';
@@ -249,7 +250,7 @@ class Enrolments_Admin {
 		echo '<tr><th>' . esc_html__( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::price( (int) $row['price_cents'] ) ) . '</td></tr>';
 		echo '<tr><th>' . esc_html__( 'Ingeschreven op', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::created( $row ) ) . '</td></tr>';
 		if ( '' !== $row['group_reference'] ) {
-			echo '<tr><th>' . esc_html__( 'Totaalprijs cyclus excl. BTW', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::price( Enrolment_Repository::group_total( $row['group_reference'] ) ) ) . '</td></tr>';
+			echo '<tr><th>' . esc_html( Labels::group_total_heading() ) . '</th><td>' . esc_html( Labels::price( Enrolment_Repository::group_total( $row['group_reference'] ) ) ) . '</td></tr>';
 		}
 		foreach ( Enrolment_Fields::groups() as $group => $heading ) {
 			if ( Enrolment_Fields::GROUP_CYCLE === $group && '' === $row['group_reference'] ) {
