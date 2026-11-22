@@ -95,6 +95,7 @@ When several people submit at the same time, the plugin handles seats one sessio
 | --- | --- |
 | Meldingen naar | E-mail address that receives new-enrolment notifications. |
 | Bewaartermijn (maanden) | How long personal data is kept after the session date. |
+| SnelStart: dagboek verkoop, grootboek debiteuren / omzet / BTW hoog | **Experimental (beta):** not yet verified against a real SnelStart import. Ledger numbers from your SnelStart. When all four are filled in, the staff notification e-mail carries a SnelStart booking CSV (3 lines: debtors, revenue, 21% VAT). Customer code and invoice number are left empty for staff to fill in before importing. Empty means no attachment. |
 | Verwijderen van de plugin | Whether uninstalling also deletes all data. |
 
 ## Language

@@ -73,6 +73,9 @@ class Installer {
 		delete_option( self::OPTION_REMOVE_ON_UNINSTALL );
 		delete_option( Settings_Page::OPTION_NOTIFICATION_EMAIL );
 		delete_option( Settings_Page::OPTION_RETENTION_MONTHS );
+		foreach ( array( Settings_Page::OPTION_SNELSTART_JOURNAL, Settings_Page::OPTION_SNELSTART_DEBTORS, Settings_Page::OPTION_SNELSTART_REVENUE, Settings_Page::OPTION_SNELSTART_VAT ) as $option ) {
+			delete_option( $option );
+		}
 		Retention::unschedule();
 	}
 

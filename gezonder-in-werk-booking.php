@@ -33,6 +33,7 @@ require_once __DIR__ . '/includes/class-rest-controller.php';
 require_once __DIR__ . '/includes/class-enrolments-admin.php';
 require_once __DIR__ . '/includes/class-mail-adapter.php';
 require_once __DIR__ . '/includes/class-email-template.php';
+require_once __DIR__ . '/includes/class-snelstart-export.php';
 require_once __DIR__ . '/includes/class-enrolment-mailer.php';
 require_once __DIR__ . '/includes/class-enrolment-intake.php';
 require_once __DIR__ . '/includes/class-form-shortcode.php';
