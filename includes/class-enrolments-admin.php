@@ -28,29 +28,6 @@ class Enrolments_Admin {
 		wp_die( esc_html__( 'Geen toegang.', 'gezonder-in-werk-booking' ), 403 );
 	}
 
-	public static function status_label( string $status ): string {
-		if ( Installer::STATUS_CANCELLED === $status ) {
-			return __( 'Geannuleerd', 'gezonder-in-werk-booking' );
-		}
-		if ( Installer::STATUS_WAITLISTED === $status ) {
-			return __( 'Wachtlijst', 'gezonder-in-werk-booking' );
-		}
-		return __( 'Bevestigd', 'gezonder-in-werk-booking' );
-	}
-
-	/** "Ingeschreven op" cell: enrolment timestamp in site time. */
-	public static function created_label( array $row ): string {
-		return mysql2date( 'd-m-Y H:i', get_date_from_gmt( $row['created_at'] ) );
-	}
-
-	/** Session cell: course and date, or a placeholder when the session no longer matches. */
-	public static function session_label( array $row ): string {
-		if ( empty( $row['course_title'] ) ) {
-			return __( 'Onbekende sessie', 'gezonder-in-werk-booking' );
-		}
-		return sprintf( '%s – %s, %s', $row['course_title'], mysql2date( 'd-m-Y', $row['session_date'] ), $row['location'] );
-	}
-
 	public static function handle_update(): void {
 		if ( ! current_user_can( self::CAP ) ) {
 			self::deny();
@@ -179,9 +156,9 @@ class Enrolments_Admin {
 				$value = esc_html( (string) $row[ $name ] );
 				echo '<td>' . ( $name === $first ? '<a href="' . esc_url( $detail ) . '">' . $value . '</a>' : $value ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped above.
 			}
-			echo '<td>' . esc_html( self::session_label( $row ) ) . '</td>';
-			echo '<td>' . esc_html( self::status_label( $row['status'] ) ) . '</td>';
-			echo '<td>' . esc_html( self::created_label( $row ) ) . '</td>';
+			echo '<td>' . esc_html( Labels::enrolment_session( $row ) ) . '</td>';
+			echo '<td>' . esc_html( Labels::status( $row['status'] ) ) . '</td>';
+			echo '<td>' . esc_html( Labels::created( $row ) ) . '</td>';
 			echo '</tr>';
 		}
 		echo '</tbody></table>';
@@ -219,7 +196,7 @@ class Enrolments_Admin {
 
 		echo '<select name="status" aria-label="' . esc_attr__( 'Status', 'gezonder-in-werk-booking' ) . '"><option value="">' . esc_html__( 'Alle statussen', 'gezonder-in-werk-booking' ) . '</option>';
 		foreach ( Enrolment_Repository::STATUSES as $status ) {
-			printf( '<option value="%s"%s>%s</option>', esc_attr( $status ), selected( $filters['status'], $status, false ), esc_html( self::status_label( $status ) ) );
+			printf( '<option value="%s"%s>%s</option>', esc_attr( $status ), selected( $filters['status'], $status, false ), esc_html( Labels::status( $status ) ) );
 		}
 		echo '</select>';
 
@@ -237,9 +214,9 @@ class Enrolments_Admin {
 		}
 
 		echo '<h2>' . esc_html__( 'Inschrijving', 'gezonder-in-werk-booking' ) . '</h2><table class="widefat striped"><tbody>';
-		echo '<tr><th>' . esc_html__( 'Sessie', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( self::session_label( $row ) ) . '</td></tr>';
-		echo '<tr><th>' . esc_html__( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Catalog_Repository::format_price( (int) $row['price_cents'] ) ) . '</td></tr>';
-		echo '<tr><th>' . esc_html__( 'Ingeschreven op', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( self::created_label( $row ) ) . '</td></tr>';
+		echo '<tr><th>' . esc_html__( 'Sessie', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::enrolment_session( $row ) ) . '</td></tr>';
+		echo '<tr><th>' . esc_html__( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::price( (int) $row['price_cents'] ) ) . '</td></tr>';
+		echo '<tr><th>' . esc_html__( 'Ingeschreven op', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::created( $row ) ) . '</td></tr>';
 		foreach ( Enrolment_Fields::groups() as $group => $heading ) {
 			echo '<tr><th colspan="2">' . esc_html( $heading ) . '</th></tr>';
 			foreach ( Enrolment_Fields::in_group( $group ) as $name => $field ) {
@@ -265,7 +242,7 @@ class Enrolments_Admin {
 				<tr><th><label for="gzw-e-status"><?php esc_html_e( 'Status', 'gezonder-in-werk-booking' ); ?></label></th>
 					<td><select id="gzw-e-status" name="status">
 						<?php foreach ( Enrolment_Repository::STATUSES as $status ) : ?>
-							<option value="<?php echo esc_attr( $status ); ?>" <?php selected( $row['status'], $status ); ?>><?php echo esc_html( self::status_label( $status ) ); ?></option>
+							<option value="<?php echo esc_attr( $status ); ?>" <?php selected( $row['status'], $status ); ?>><?php echo esc_html( Labels::status( $status ) ); ?></option>
 						<?php endforeach; ?>
 					</select></td></tr>
 				<tr><th><?php esc_html_e( 'Gefactureerd', 'gezonder-in-werk-booking' ); ?></th>

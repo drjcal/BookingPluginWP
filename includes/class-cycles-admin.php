@@ -95,7 +95,7 @@ class Cycles_Admin {
 		foreach ( Catalog_Repository::cycles() as $row ) {
 			$cycle = Catalog_Repository::get_cycle( (int) $row['id'] );
 			$edit  = add_query_arg( array( 'page' => self::SLUG, 'cycle' => $row['id'] ), admin_url( 'admin.php' ) );
-			echo '<tr><td><a href="' . esc_url( $edit ) . '">' . esc_html( $row['title'] ) . '</a></td><td>' . esc_html( Catalog_Repository::format_price( (int) $row['price_cents'] ) ) . '</td><td>' . esc_html( (string) count( $cycle['sessions'] ) ) . '</td><td>';
+			echo '<tr><td><a href="' . esc_url( $edit ) . '">' . esc_html( $row['title'] ) . '</a></td><td>' . esc_html( Labels::price( (int) $row['price_cents'] ) ) . '</td><td>' . esc_html( (string) count( $cycle['sessions'] ) ) . '</td><td>';
 			Admin_Page::action_form( 'gzw_delete_cycle', array( 'id' => $row['id'] ), __( 'Verwijderen', 'gezonder-in-werk-booking' ), 'button-link-delete' );
 			echo '</td></tr>';
 		}

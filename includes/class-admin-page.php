@@ -171,7 +171,7 @@ class Admin_Page {
 		echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Titel', 'gezonder-in-werk-booking' ) . '</th><th>' . esc_html__( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ) . '</th><th></th></tr></thead><tbody>';
 		foreach ( Catalog_Repository::courses() as $course ) {
 			$edit = add_query_arg( array( 'page' => self::SLUG, 'course' => $course['id'] ), admin_url( 'admin.php' ) );
-			echo '<tr><td><a href="' . esc_url( $edit ) . '">' . esc_html( $course['title'] ) . '</a></td><td>' . esc_html( Catalog_Repository::format_price( (int) $course['price_cents'] ) ) . '</td><td>';
+			echo '<tr><td><a href="' . esc_url( $edit ) . '">' . esc_html( $course['title'] ) . '</a></td><td>' . esc_html( Labels::price( (int) $course['price_cents'] ) ) . '</td><td>';
 			self::action_form( 'gzw_delete_course', array( 'id' => $course['id'] ), __( 'Verwijderen', 'gezonder-in-werk-booking' ), 'button-link-delete' );
 			echo '</td></tr>';
 		}

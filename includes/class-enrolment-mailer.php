@@ -58,13 +58,13 @@ class Enrolment_Mailer {
 				substr( $row['start_time'], 0, 5 ),
 				substr( $row['end_time'], 0, 5 ),
 				$row['location'],
-				Enrolments_Admin::status_label( $row['status'] )
+				Labels::status( $row['status'] )
 			);
 		}
 		$lines[] = sprintf(
 			/* translators: %s: price */
 			$cycle ? __( 'Prijs hele cyclus: %s excl. BTW', 'gezonder-in-werk-booking' ) : __( 'Prijs: %s excl. BTW', 'gezonder-in-werk-booking' ),
-			Catalog_Repository::format_price( $total )
+			Labels::price( $total )
 		);
 		return implode( "\n", $lines ) . "\n";
 	}
