@@ -260,4 +260,15 @@ class SeatAllocationTest extends WP_UnitTestCase {
 		$this->assertNotNull( Catalog_Repository::get_cycle( $cycle ) );
 		$this->assertSame( 'Cyclus', Catalog_Repository::get_cycle( $cycle )['title'] );
 	}
+
+	public function test_an_admin_edit_judges_the_seat_on_the_status_at_lock_time_not_form_time(): void {
+		$session = $this->make_session( array( 'capacity' => 1 ) );
+		$a       = Gzw_Submission::post( $this->params( (string) $session, 'a@example.nl' ) )->get_data()['id'];
+		$b       = Gzw_Submission::post( $this->params( (string) $session, 'b@example.nl' ) )->get_data()['id']; // Waitlisted.
+
+		// Setting an already-confirmed enrolment to confirmed again must not be refused as "full".
+		$this->assertSame( 'ok', Enrolment_Repository::update_admin( $a, 'confirmed', true, 'x' ) );
+		// A waitlisted one cannot take the only seat.
+		$this->assertSame( 'full', Enrolment_Repository::update_admin( $b, 'confirmed', false, '' ) );
+	}
 }

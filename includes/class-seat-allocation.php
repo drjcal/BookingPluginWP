@@ -180,7 +180,12 @@ class Seat_Allocation {
 			$row['active_session_id'] = self::active_session_id( $status, (int) $current['session_id'] );
 		}
 		$write = static function () use ( $wpdb, $row, $id, $current, $status ): string {
-			if ( Installer::STATUS_CONFIRMED === $status && Installer::STATUS_CONFIRMED !== $current['status'] ) {
+			// Re-read under the lock: the status may have changed since the form was loaded.
+			$fresh = Enrolment_Repository::get( $id );
+			if ( ! $fresh || (int) $fresh['session_id'] !== (int) $current['session_id'] ) {
+				return 'error';
+			}
+			if ( Installer::STATUS_CONFIRMED === $status && Installer::STATUS_CONFIRMED !== $fresh['status'] ) {
 				$session = Catalog_Repository::get_session( (int) $current['session_id'] );
 				if ( $session && self::confirmed_count( (int) $session['id'] ) >= self::seats( $session ) ) {
 					return 'full';

@@ -31,8 +31,8 @@ class Mysql_Lock_Adapter implements Lock_Adapter {
 }
 
 /**
- * Per-session locks. Seat_Allocation is the only production caller that decides what to do
- * under them; the catalog uses them to keep session deletes and saves out of an enrolment in flight.
+ * Per-session locks. Seat_Allocation decides what to do under them; the catalog also takes them
+ * (through its with_session_lock shims) to keep session and course deletes out of an enrolment in flight.
  */
 class Session_Lock {
 
