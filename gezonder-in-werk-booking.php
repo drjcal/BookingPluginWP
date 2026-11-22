@@ -59,6 +59,7 @@ add_action( 'admin_init', array( Settings_Page::class, 'register_settings' ) );
 add_action( 'admin_post_gzw_save_cycle', array( Cycles_Admin::class, 'handle_save' ) );
 add_action( 'admin_post_gzw_delete_cycle', array( Cycles_Admin::class, 'handle_delete' ) );
 add_action( 'admin_menu', array( Enrolments_Admin::class, 'register_menu' ) );
+add_action( 'admin_enqueue_scripts', array( Enrolments_Admin::class, 'enqueue_styles' ) );
 add_action( 'admin_post_gzw_update_enrolment', array( Enrolments_Admin::class, 'handle_update' ) );
 add_action( 'admin_post_gzw_promote_enrolment', array( Enrolments_Admin::class, 'handle_promote' ) );
 add_action( Retention::HOOK, array( Retention::class, 'run' ) );

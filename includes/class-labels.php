@@ -32,6 +32,32 @@ class Labels {
 		return sprintf( '%s – %s, %s', $row['course_title'], mysql2date( 'd-m-Y', $row['session_date'] ), $row['location'] );
 	}
 
+	/** Seat line of a session: "3 van 10 bevestigd, 2 op wachtlijst" (no "van" when unlimited). */
+	public static function seats( array $availability ): string {
+		$confirmed = null === $availability['capacity']
+			? sprintf( /* translators: %d: confirmed enrolments */ __( '%d bevestigd (onbeperkt)', 'gezonder-in-werk-booking' ), $availability['confirmed'] )
+			: sprintf( /* translators: 1: confirmed enrolments, 2: capacity */ __( '%1$d van %2$d bevestigd', 'gezonder-in-werk-booking' ), $availability['confirmed'], $availability['capacity'] );
+		/* translators: %d: waitlisted enrolments */
+		return $confirmed . ', ' . sprintf( __( '%d op wachtlijst', 'gezonder-in-werk-booking' ), $availability['waitlisted'] );
+	}
+
+	public static function seats_heading(): string {
+		return __( 'Plekken', 'gezonder-in-werk-booking' );
+	}
+
+	public static function invoiced_heading(): string {
+		return __( 'Gefactureerd', 'gezonder-in-werk-booking' );
+	}
+
+	public static function group_total_heading(): string {
+		return __( 'Totaalprijs cyclus excl. BTW', 'gezonder-in-werk-booking' );
+	}
+
+	/** "Gefactureerd" cell: Ja / Nee. */
+	public static function invoiced( array $row ): string {
+		return (int) $row['invoiced'] ? __( 'Ja', 'gezonder-in-werk-booking' ) : __( 'Nee', 'gezonder-in-werk-booking' );
+	}
+
 	public static function price( int $cents ): string {
 		return '€ ' . number_format( $cents / 100, 2, ',', '.' );
 	}

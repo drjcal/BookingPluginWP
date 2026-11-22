@@ -228,6 +228,9 @@ class Admin_Page {
 				</select></label>
 			<label><?php esc_html_e( 'Capaciteit (leeg = onbeperkt)', 'gezonder-in-werk-booking' ); ?><br /><input type="number" name="capacity" min="1" step="1" value="<?php echo esc_attr( (string) $s['capacity'] ); ?>" /></label>
 			<label><input type="checkbox" name="is_open" value="1" <?php checked( (int) $s['is_open'], 1 ); ?> /> <?php esc_html_e( 'Open voor inschrijving', 'gezonder-in-werk-booking' ); ?></label>
+			<?php if ( $s['id'] ) : ?>
+				<span class="gzw-seats"><?php echo esc_html( Labels::seats( Seat_Allocation::availability( (int) $s['id'] ) ) ); ?></span>
+			<?php endif; ?>
 			<button type="submit" class="button button-primary"><?php echo $s['id'] ? esc_html__( 'Opslaan', 'gezonder-in-werk-booking' ) : esc_html__( 'Datum toevoegen', 'gezonder-in-werk-booking' ); ?></button>
 		</form>
 		<?php

@@ -113,6 +113,26 @@ class EnrolmentExportTest extends WP_UnitTestCase {
 		$this->assertSame( 'Nee', $rows[0]['Gefactureerd'] );
 	}
 
+	public function test_export_carries_the_group_reference_of_a_cycle_and_empty_for_single(): void {
+		$this->enrol( array( 'email' => 'a@example.nl', 'group_reference' => 'CYC-AAAA' ) );
+		$this->enrol( array( 'email' => 'b@example.nl' ) );
+
+		list( , $rows ) = $this->parse( Enrolments_Export::build( array() ) );
+		$by_email       = array_column( $rows, 'Groepsreferentie (cyclus)', 'E-mailadres' );
+
+		$this->assertSame( 'CYC-AAAA', $by_email['a@example.nl'] );
+		$this->assertSame( '', $by_email['b@example.nl'] );
+	}
+
+	public function test_export_can_be_filtered_to_one_cycle_group(): void {
+		$this->enrol( array( 'email' => 'a@example.nl', 'group_reference' => 'CYC-AAAA' ) );
+		$this->enrol( array( 'email' => 'b@example.nl', 'group_reference' => 'CYC-BBBB' ) );
+
+		list( , $rows ) = $this->parse( Enrolments_Export::build( array( 'group' => 'CYC-AAAA' ) ) );
+
+		$this->assertSame( array( 'a@example.nl' ), array_column( $rows, 'E-mailadres' ) );
+	}
+
 	public function test_session_cell_shows_a_placeholder_when_the_session_is_gone(): void {
 		$this->enrol( array( 'session_id' => 999999 ) );
 
