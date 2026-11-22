@@ -55,6 +55,18 @@
 			}
 		}
 
+		// Show the expectation text that belongs to the chosen session or cycle.
+		var select = form.elements.session_id;
+		function showExpectation() {
+			form.querySelectorAll( '[data-gzw-expectation]' ).forEach( function ( el ) {
+				el.hidden = el.getAttribute( 'data-gzw-expectation' ) !== select.value;
+			} );
+		}
+		if ( select ) {
+			select.addEventListener( 'change', showExpectation );
+			showExpectation();
+		}
+
 		form.addEventListener( 'submit', function ( event ) {
 			event.preventDefault();
 			clearErrors();
@@ -71,9 +83,12 @@
 					} );
 				} )
 				.then( function ( result ) {
-					status.textContent = result.data.message || '';
+					status.textContent = [ result.data.message || '' ].concat( result.ok ? result.data.expectations || [] : [] ).join( '\n' );
 					if ( result.ok ) {
 						form.reset();
+						if ( select ) {
+							showExpectation();
+						}
 						status.focus();
 					} else if ( result.data.errors ) {
 						restoreValues( result.data.values );

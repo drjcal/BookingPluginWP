@@ -13,3 +13,5 @@ Dutch UI labels are in brackets.
 | **Billing details** (Factuurgegevens) | The invoice fields of an Enrolment (for example company and invoice address), kept apart from the participant's personal details. |
 | **Group reference** | A shared reference on the Enrolments created by one Cycle submission, so they can be handled together (for example deletion and anonymisation). |
 | **Labels** | The single module (`Labels`) that owns enrolment wording and formatting: status, session, date, price, seat counts and the invoiced state. |
+| **Format** (Soort) | Whether a Session is a webinar or a live training. It decides when the enrolee gets the link or practical information (`Expectation_Texts`). Existing Sessions default to webinar. |
+| **Expectation text** | The sentence telling the enrolee when information arrives, with the calculated send date. Shown on the form, the confirmation screen and the confirmation e-mail; a waitlisted Enrolment gets it only after promotion. |

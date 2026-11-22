@@ -76,7 +76,8 @@ class Rest_Controller {
 			$body['ids']             = $outcome->ids();
 			$body['group_reference'] = $outcome->group_reference;
 		}
-		$body['message'] = $outcome->message;
+		$body['message']      = $outcome->message;
+		$body['expectations'] = $outcome->expectations;
 		return new \WP_REST_Response( $body, 201 );
 	}
 }

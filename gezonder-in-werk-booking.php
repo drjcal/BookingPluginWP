@@ -19,6 +19,7 @@ define( 'GZW_BOOKING_FILE', __FILE__ );
 require_once __DIR__ . '/includes/class-enrolment-fields.php';
 require_once __DIR__ . '/includes/class-installer.php';
 require_once __DIR__ . '/includes/class-labels.php';
+require_once __DIR__ . '/includes/class-expectation-texts.php';
 require_once __DIR__ . '/includes/class-session-lock.php';
 require_once __DIR__ . '/includes/class-catalog-repository.php';
 require_once __DIR__ . '/includes/class-enrolment-validator.php';

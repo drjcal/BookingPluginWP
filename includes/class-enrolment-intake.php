@@ -30,6 +30,8 @@ class Intake_Outcome {
 	public $group_reference = '';
 	/** @var string Wording for the enrolee (created only). */
 	public $message = '';
+	/** @var string[] When the information arrives, for the confirmed enrolments (created only). */
+	public $expectations = array();
 
 	public function __construct( string $kind ) {
 		$this->kind = $kind;
@@ -60,7 +62,7 @@ class Enrolment_Intake {
 		self::$mail = $mail;
 	}
 
-	private static function mail(): Mail_Adapter {
+	public static function mail(): Mail_Adapter {
 		return self::$mail ?? new Wp_Mail_Adapter();
 	}
 
@@ -136,6 +138,7 @@ class Enrolment_Intake {
 		$outcome->waitlisted = Installer::STATUS_WAITLISTED === $stored['status'];
 		$outcome->group_reference = $is_cycle ? $stored['group_reference'] : '';
 		$outcome->message   = Enrolment_Messages::outcome( $is_cycle, $outcome->waitlisted );
+		$outcome->expectations = Expectation_Texts::for_enrolments( $outcome->enrolments, $is_cycle );
 
 		Enrolment_Mailer::send_for_submission( self::mail(), $values, $outcome->enrolments, $is_cycle ? $cycle : null );
 		return $outcome;

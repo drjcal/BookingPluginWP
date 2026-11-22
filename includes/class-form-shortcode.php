@@ -36,6 +36,7 @@ class Form_Shortcode {
 					<select id="gzw-session_id" name="session_id" required aria-required="true">
 						<option value=""><?php esc_html_e( 'Maak een keuze', 'gezonder-in-werk-booking' ); ?></option>
 						<?php $cycles = Catalog_Repository::open_cycles(); ?>
+						<?php $sessions = Catalog_Repository::open_sessions(); ?>
 						<?php if ( $cycles ) : ?>
 							<optgroup label="<?php esc_attr_e( 'Hele cyclus', 'gezonder-in-werk-booking' ); ?>">
 								<?php foreach ( $cycles as $cycle ) : ?>
@@ -44,7 +45,7 @@ class Form_Shortcode {
 							</optgroup>
 							<optgroup label="<?php esc_attr_e( 'Losse webinars', 'gezonder-in-werk-booking' ); ?>">
 						<?php endif; ?>
-						<?php foreach ( Catalog_Repository::open_sessions() as $session ) : ?>
+						<?php foreach ( $sessions as $session ) : ?>
 							<option value="<?php echo esc_attr( $session['id'] ); ?>"><?php echo esc_html( Labels::session( $session ) ); ?></option>
 						<?php endforeach; ?>
 						<?php if ( $cycles ) : ?>
@@ -53,6 +54,20 @@ class Form_Shortcode {
 					</select>
 					<span class="gzw-form__error" id="gzw-session_id-error" data-gzw-error="session_id"></span>
 				</p>
+				<div class="gzw-form__expectations" aria-live="polite" data-gzw-expectations>
+					<?php foreach ( $cycles as $cycle ) : ?>
+						<div hidden data-gzw-expectation="<?php echo esc_attr( 'cycle-' . $cycle['id'] ); ?>">
+							<?php foreach ( Expectation_Texts::for_cycle( $cycle ) as $line ) : ?>
+								<p><?php echo esc_html( $line ); ?></p>
+							<?php endforeach; ?>
+						</div>
+					<?php endforeach; ?>
+					<?php foreach ( $sessions as $session ) : ?>
+						<div hidden data-gzw-expectation="<?php echo esc_attr( (string) $session['id'] ); ?>">
+							<p><?php echo esc_html( Expectation_Texts::for_session( $session ) ); ?></p>
+						</div>
+					<?php endforeach; ?>
+				</div>
 			</fieldset>
 			<fieldset>
 				<legend><?php esc_html_e( 'Jouw gegevens', 'gezonder-in-werk-booking' ); ?></legend>
