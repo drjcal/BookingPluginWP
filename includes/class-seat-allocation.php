@@ -151,6 +151,29 @@ class Seat_Allocation {
 		return null === $session['capacity'] ? PHP_INT_MAX : (int) $session['capacity'];
 	}
 
+	/**
+	 * Seat picture of a session for staff: confirmed seats, capacity, waitlist and free seats.
+	 * Capacity and free are null when the session is unlimited. Read-only, takes no lock.
+	 *
+	 * @return array{confirmed:int,capacity:?int,waitlisted:int,free:?int}
+	 */
+	public static function availability( int $session_id ): array {
+		global $wpdb;
+		$session   = Catalog_Repository::get_session( $session_id );
+		$capacity  = $session && null !== $session['capacity'] ? (int) $session['capacity'] : null;
+		$confirmed = self::confirmed_count( $session_id );
+		$table     = Installer::table_name();
+		$waitlist  = (int) $wpdb->get_var(
+			$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE session_id = %d AND status = %s", $session_id, Installer::STATUS_WAITLISTED ) // phpcs:ignore WordPress.DB.PreparedSQL -- table from Installer.
+		);
+		return array(
+			'confirmed'  => $confirmed,
+			'capacity'   => $capacity,
+			'waitlisted' => $waitlist,
+			'free'       => null === $capacity ? null : max( 0, $capacity - $confirmed ),
+		);
+	}
+
 	private static function confirmed_count( int $session_id ): int {
 		global $wpdb;
 		$table = Installer::table_name();

@@ -179,7 +179,10 @@ class AdminEnrolmentListTest extends WP_UnitTestCase {
 
 		$html = $this->render( array( 'enrolment' => (string) $id ) );
 
-		foreach ( \GezonderInWerk\Booking\Enrolment_Fields::all() as $field ) {
+		foreach ( \GezonderInWerk\Booking\Enrolment_Fields::all() as $name => $field ) {
+			if ( 'group_reference' === $name ) {
+				continue; // Cycle-only: a single enrolment shows no cycle details.
+			}
 			$this->assertStringContainsString( $field['label'], $html );
 		}
 		foreach ( array( 'Kerkstraat 1', '5611 AB', 'NL123456789B01', '12345678', 'Arbodienst Oost B.V.', 'gzw_update_enrolment' ) as $value ) {
@@ -216,6 +219,68 @@ class AdminEnrolmentListTest extends WP_UnitTestCase {
 		$row = Enrolment_Repository::get( $id );
 		$this->assertSame( 'confirmed', $row['status'] );
 		$this->assertSame( '', $row['internal_note'] );
+	}
+
+	public function test_list_shows_confirmed_seats_capacity_and_waitlist_per_session(): void {
+		$limited = Catalog_Repository::save_session( array( 'course_id' => $this->course_a, 'session_date' => '2027-04-01', 'start_time' => '09:00', 'end_time' => '12:00', 'location' => 'Utrecht', 'capacity' => 2, 'is_open' => 1 ) );
+		$this->enrol( array( 'email' => 'a@example.nl', 'session_id' => $limited ) );
+		$this->enrol( array( 'email' => 'b@example.nl', 'session_id' => $limited ) );
+		$this->enrol( array( 'email' => 'c@example.nl', 'session_id' => $limited, 'status' => 'waitlisted' ) );
+		$this->admin();
+
+		$html = $this->render();
+
+		$this->assertStringContainsString( '2 van 2 bevestigd, 1 op wachtlijst', $html );
+	}
+
+	public function test_list_links_the_group_reference_to_the_cycle_filter(): void {
+		$this->enrol( array( 'email' => 'a@example.nl', 'group_reference' => 'CYC-AAAA' ) );
+		$this->enrol( array( 'email' => 'b@example.nl', 'group_reference' => 'CYC-BBBB', 'session_id' => $this->session_b ) );
+		$this->enrol( array( 'email' => 'c@example.nl', 'group_reference' => 'CYC-AAAA', 'session_id' => $this->session_b ) );
+		$this->admin();
+
+		$html = $this->render();
+		$this->assertMatchesRegularExpression( '/<a href="[^"]*group=CYC-AAAA[^"]*">CYC-AAAA<\/a>/', $html );
+
+		$this->assertEqualsCanonicalizing( array( 'a@example.nl', 'c@example.nl' ), $this->emails( array( 'group' => 'CYC-AAAA' ) ) );
+		$filtered = $this->render( array( 'group' => 'CYC-AAAA' ) );
+		$this->assertStringNotContainsString( 'b@example.nl', $filtered );
+	}
+
+	public function test_detail_links_to_the_group_and_shows_the_group_total_even_when_the_priced_enrolment_is_cancelled(): void {
+		$priced = $this->enrol( array( 'email' => 'a@example.nl', 'group_reference' => 'CYC-AAAA', 'price_cents' => 24900, 'status' => 'cancelled' ) );
+		$other  = $this->enrol( array( 'email' => 'b@example.nl', 'group_reference' => 'CYC-AAAA', 'price_cents' => 0, 'session_id' => $this->session_b ) );
+		$this->admin();
+
+		$detail = $this->render( array( 'enrolment' => (string) $other ) );
+
+		$this->assertStringContainsString( '€ 249,00', $detail );
+		$this->assertStringContainsString( 'group=CYC-AAAA', $detail );
+		$this->assertSame( 24900, Enrolment_Repository::group_total( 'CYC-AAAA' ) );
+		$this->assertSame( 0, Enrolment_Repository::group_total( '' ) );
+	}
+
+	public function test_single_enrolment_detail_has_no_cycle_heading(): void {
+		$single = $this->enrol();
+		$cycle  = $this->enrol( array( 'email' => 'b@example.nl', 'group_reference' => 'CYC-AAAA', 'session_id' => $this->session_b ) );
+		$this->admin();
+
+		$this->assertStringNotContainsString( 'Cyclus', $this->render( array( 'enrolment' => (string) $single ) ) );
+		$this->assertStringContainsString( 'Cyclus', $this->render( array( 'enrolment' => (string) $cycle ) ) );
+	}
+
+	public function test_list_shows_the_invoiced_state_and_the_filter_form_has_no_inline_style(): void {
+		$this->enrol( array( 'email' => 'a@example.nl', 'invoiced' => 1 ) );
+		$this->enrol( array( 'email' => 'b@example.nl' ) );
+		$this->admin();
+
+		$html = $this->render();
+
+		$this->assertStringContainsString( '<th>Gefactureerd</th>', $html );
+		$this->assertSame( 1, substr_count( $html, '<td>Ja</td>' ) );
+		$this->assertSame( 1, substr_count( $html, '<td>Nee</td>' ) );
+		$this->assertStringNotContainsString( 'style=', $html );
+		$this->assertStringContainsString( 'gzw-filter-form', $html );
 	}
 
 	public function test_users_without_capability_are_denied_list_detail_and_update(): void {
