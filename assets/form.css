@@ -9,3 +9,5 @@
 .gzw-form__status:not(:empty) { margin-bottom: 1rem; padding: .75rem; border: 2px solid currentColor; }
 .gzw-form__field--checkbox input { width: auto; min-height: 0; margin-right: .5rem; }
 .gzw-form__trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.gzw-form__status { white-space: pre-line; }
+.gzw-form__expectations { margin: 0 0 1rem; font-size: .95em; }

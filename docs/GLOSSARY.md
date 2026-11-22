@@ -14,6 +14,10 @@ _Avoid_: Training, product
 One occasion on which a course takes place, on a date and time, at a location, with an optional capacity. A webinar is a session.
 _Avoid_: Edition, event, class
 
+**Format**:
+Whether a session is a webinar or a live training. It decides when the participant gets the link or practical information (`Expectation_Texts`). Existing sessions default to webinar.
+_Avoid_: Type, kind
+
 **Cycle**:
 A set of sessions sold together at one bundle price.
 _Avoid_: Series, package, programme
@@ -50,6 +54,10 @@ _Avoid_: Booking, registration, inschrijving (in code and docs)
 The set of enrolments, one per session, that a participant creates in a single sign-up for a cycle. Each enrolment has its own outcome, so a participant can be confirmed on one session and waitlisted on another.
 _Avoid_: Cycle booking, bundle
 
+**Billing details**:
+The invoice fields of an enrolment (for example company and invoice address), kept apart from the participant's personal details.
+_Avoid_: Invoice data
+
 **Group reference**:
 The shared identifier that ties together the enrolments of one cycle enrolment.
 _Avoid_: Group id, booking number
@@ -77,6 +85,15 @@ _Avoid_: Billed, paid
 **Erase**:
 Staff remove an enrolment together with the participant's personal data. For a cycle enrolment, the whole group is erased.
 _Avoid_: Delete, anonymise
+
+### Wording
+
+**Labels**:
+The single module (`Labels`) that owns enrolment wording and formatting: status, session, date, price, seat counts and the invoiced state.
+
+**Expectation text**:
+The sentence telling the participant when information arrives, with the calculated send date. Shown on the form, the confirmation screen and the confirmation e-mail; a waitlisted enrolment gets it only after promotion.
+_Avoid_: Notice, reminder
 
 ## Relationships
 

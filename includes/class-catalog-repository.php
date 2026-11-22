@@ -29,9 +29,21 @@ class Catalog_Repository {
 
 	/**
 	 * @param array $data course_id, session_date (Y-m-d), start_time, end_time (H:i), location, is_open,
-	 *                    capacity (positive int; empty or missing = unlimited).
+	 *                    capacity (positive int; empty or missing = unlimited),
+	 *                    format (webinar|live; default webinar).
+	 * @return int Session id, 0 on failure.
 	 */
 	public static function save_session( array $data, int $id = 0 ): int {
+		return self::save_session_checked( $data, $id )['id'];
+	}
+
+	/**
+	 * Like save_session(), telling why it failed: capacity_below_confirmed (fewer seats than
+	 * confirmed enrolments) | busy (lock timeout, retry) | storage.
+	 *
+	 * @return array{id:int,error:?string}
+	 */
+	public static function save_session_checked( array $data, int $id = 0 ): array {
 		global $wpdb;
 		$row = array(
 			'course_id'    => (int) ( $data['course_id'] ?? 0 ),
@@ -40,16 +52,16 @@ class Catalog_Repository {
 			'end_time'     => (string) ( $data['end_time'] ?? '' ),
 			'location'     => (string) ( $data['location'] ?? '' ),
 			'is_open'      => empty( $data['is_open'] ) ? 0 : 1,
+			'format'       => Expectation_Texts::normalise_format( $data['format'] ?? null ),
 			'capacity'     => ( isset( $data['capacity'] ) && (int) $data['capacity'] > 0 ) ? (int) $data['capacity'] : null,
 		);
 		if ( $id ) {
-			// Same lock as enrolling, so closing a session cannot interleave with a submission in flight.
-			return (int) self::with_session_lock(
-				$id,
-				static fn() => false === $wpdb->update( Installer::sessions_table(), $row, array( 'id' => $id ) ) ? 0 : $id
-			);
+			// Seat allocation owns changes to an existing session: capacity and closing must not interleave with a submission in flight.
+			return Seat_Allocation::update_session( $row, $id );
 		}
-		return $wpdb->insert( Installer::sessions_table(), $row ) ? (int) $wpdb->insert_id : 0;
+		return $wpdb->insert( Installer::sessions_table(), $row )
+			? array( 'id' => (int) $wpdb->insert_id, 'error' => null )
+			: array( 'id' => 0, 'error' => 'storage' );
 	}
 
 	/**
@@ -60,29 +72,7 @@ class Catalog_Repository {
 	 * @return int Cycle id, 0 on failure.
 	 */
 	public static function save_cycle( array $data, int $id = 0 ): int {
-		global $wpdb;
-		$row = array(
-			'title'       => (string) ( $data['title'] ?? '' ),
-			'price_cents' => max( 0, (int) ( $data['price_cents'] ?? 0 ) ),
-		);
-		if ( $id ) {
-			if ( false === $wpdb->update( Installer::cycles_table(), $row, array( 'id' => $id ) ) ) {
-				return 0;
-			}
-		} elseif ( $wpdb->insert( Installer::cycles_table(), $row ) ) {
-			$id = (int) $wpdb->insert_id;
-		} else {
-			return 0;
-		}
-
-		$links = Installer::cycle_sessions_table();
-		$wpdb->delete( $links, array( 'cycle_id' => $id ) );
-		foreach ( array_unique( array_map( 'intval', (array) ( $data['session_ids'] ?? array() ) ) ) as $session_id ) {
-			if ( ! $wpdb->insert( $links, array( 'cycle_id' => $id, 'session_id' => $session_id ) ) ) {
-				return 0;
-			}
-		}
-		return $id;
+		return Seat_Allocation::save_cycle( $data, $id );
 	}
 
 	/** Cycle with its sessions (each joined with its course), soonest first, under 'sessions'. */
@@ -132,9 +122,7 @@ class Catalog_Repository {
 	}
 
 	public static function delete_cycle( int $id ): bool {
-		global $wpdb;
-		$wpdb->delete( Installer::cycle_sessions_table(), array( 'cycle_id' => $id ) );
-		return false !== $wpdb->delete( Installer::cycles_table(), array( 'id' => $id ) );
+		return Seat_Allocation::delete_cycle( $id );
 	}
 
 	public static function session_in_cycle( int $session_id ): bool {
@@ -143,41 +131,14 @@ class Catalog_Repository {
 		return (bool) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE session_id = %d", $session_id ) );
 	}
 
-	/**
-	 * Run $callback while holding the locks of several sessions, taken in id order so two
-	 * submissions over overlapping sessions cannot deadlock. Null when a lock is not obtained.
-	 *
-	 * @param int[] $session_ids
-	 * @return mixed
-	 */
+	/** @see Session_Lock::run_all() */
 	public static function with_session_locks( array $session_ids, callable $callback ) {
-		$session_ids = array_values( array_unique( array_map( 'intval', $session_ids ) ) );
-		sort( $session_ids );
-		$run = $callback;
-		foreach ( array_reverse( $session_ids ) as $session_id ) {
-			$inner = $run;
-			$run   = static fn() => self::with_session_lock( $session_id, $inner );
-		}
-		return $run();
+		return Session_Lock::run_all( $session_ids, $callback );
 	}
 
-	/**
-	 * Run $callback while holding a per-session lock (MySQL named lock; works under autocommit
-	 * and is re-entrant on one connection). Returns null without running when the lock is not obtained.
-	 *
-	 * @return mixed
-	 */
+	/** @see Session_Lock::run() */
 	public static function with_session_lock( int $session_id, callable $callback ) {
-		global $wpdb;
-		$name = 'gzw_session_' . md5( $wpdb->prefix . $session_id ); // Lock names max 64 chars.
-		if ( 1 !== (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 10)', $name ) ) ) {
-			return null;
-		}
-		try {
-			return $callback();
-		} finally {
-			$wpdb->query( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $name ) );
-		}
+		return Session_Lock::run( $session_id, $callback );
 	}
 
 	/** Open and not yet past (a session today is still bookable). */

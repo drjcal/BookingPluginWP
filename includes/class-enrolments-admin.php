@@ -13,6 +13,13 @@ class Enrolments_Admin {
 	const CAP      = Installer::CAP_MANAGE_ENROLMENTS;
 	const PER_PAGE = 20;
 
+	/** Admin stylesheet, loaded on the enrolment pages only. */
+	public static function enqueue_styles( string $hook ): void {
+		if ( false !== strpos( $hook, self::SLUG ) ) {
+			wp_enqueue_style( 'gzw-booking-admin', plugins_url( 'assets/admin.css', GZW_BOOKING_FILE ), array(), VERSION );
+		}
+	}
+
 	public static function register_menu(): void {
 		add_menu_page(
 			__( 'Inschrijvingen', 'gezonder-in-werk-booking' ),
@@ -43,7 +50,7 @@ class Enrolments_Admin {
 
 		$result = 'error';
 		if ( $id && in_array( $status, Enrolment_Repository::STATUSES, true ) ) {
-			$result = Enrolment_Repository::update_admin( $id, $status, $flag, $note );
+			$result = Seat_Allocation::update_admin( $id, $status, $flag, $note );
 		}
 		self::back_to_detail( $id, $result );
 	}
@@ -54,7 +61,7 @@ class Enrolments_Admin {
 		}
 		check_admin_referer( 'gzw_promote_enrolment' );
 		$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0; // phpcs:ignore WordPress.Security.NonceVerification -- checked above.
-		self::back_to_detail( $id, Enrolment_Repository::promote( $id ) );
+		self::back_to_detail( $id, Seat_Allocation::promote( $id ) );
 	}
 
 	/** Staff erase an enrolment and its personal data (the whole group for a cycle submission). */
@@ -77,7 +84,7 @@ class Enrolments_Admin {
 		exit;
 	}
 
-	/** @param string $result ok | full | error */
+	/** @param string $result ok | full | busy | error */
 	private static function back_to_detail( int $id, string $result ): void {
 		wp_safe_redirect(
 			add_query_arg(
@@ -104,6 +111,8 @@ class Enrolments_Admin {
 			echo '<div class="notice notice-success"><p>' . esc_html__( 'Inschrijving en persoonsgegevens verwijderd.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		} elseif ( 'full' === $notice ) {
 			echo '<div class="notice notice-error"><p>' . esc_html__( 'Geen vrije plek: annuleer eerst een bevestigde inschrijving of verhoog de capaciteit.', 'gezonder-in-werk-booking' ) . '</p></div>';
+		} elseif ( 'busy' === $notice ) {
+			echo '<div class="notice notice-error"><p>' . esc_html__( 'Even geduld: deze datum wordt op dit moment bijgewerkt. Er is niets gewijzigd; probeer het over een paar seconden opnieuw.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		} elseif ( 'error' === $notice ) {
 			echo '<div class="notice notice-error"><p>' . esc_html__( 'Opslaan mislukt.', 'gezonder-in-werk-booking' ) . '</p></div>';
 		}
@@ -122,6 +131,7 @@ class Enrolments_Admin {
 		return array(
 			'course'  => isset( $_GET['course'] ) ? absint( $_GET['course'] ) : 0,
 			'session' => isset( $_GET['session'] ) ? absint( $_GET['session'] ) : 0,
+			'group'   => isset( $_GET['group'] ) ? sanitize_text_field( wp_unslash( $_GET['group'] ) ) : '',
 			'status'  => isset( $_GET['status'] ) ? sanitize_key( wp_unslash( $_GET['status'] ) ) : '',
 			'search'  => isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '',
 		);
@@ -141,23 +151,36 @@ class Enrolments_Admin {
 		foreach ( $columns as $field ) {
 			echo '<th>' . esc_html( $field['label'] ) . '</th>';
 		}
-		foreach ( array( __( 'Sessie', 'gezonder-in-werk-booking' ), __( 'Status', 'gezonder-in-werk-booking' ), __( 'Ingeschreven op', 'gezonder-in-werk-booking' ) ) as $heading ) {
+		$extra = array( __( 'Sessie', 'gezonder-in-werk-booking' ), Labels::seats_heading(), __( 'Status', 'gezonder-in-werk-booking' ), Labels::invoiced_heading(), __( 'Ingeschreven op', 'gezonder-in-werk-booking' ) );
+		foreach ( $extra as $heading ) {
 			echo '<th>' . esc_html( $heading ) . '</th>';
 		}
 		echo '</tr></thead><tbody>';
 		if ( ! $result['rows'] ) {
-			echo '<tr><td colspan="' . esc_attr( (string) ( count( $columns ) + 3 ) ) . '">' . esc_html__( 'Geen inschrijvingen gevonden.', 'gezonder-in-werk-booking' ) . '</td></tr>';
+			echo '<tr><td colspan="' . esc_attr( (string) ( count( $columns ) + count( $extra ) ) ) . '">' . esc_html__( 'Geen inschrijvingen gevonden.', 'gezonder-in-werk-booking' ) . '</td></tr>';
 		}
 		$first = array_key_first( $columns );
+		$seat_labels = array();
 		foreach ( $result['rows'] as $row ) {
 			$detail = add_query_arg( array( 'page' => self::SLUG, 'enrolment' => $row['id'] ), admin_url( 'admin.php' ) );
 			echo '<tr>';
 			foreach ( $columns as $name => $field ) {
 				$value = esc_html( (string) $row[ $name ] );
-				echo '<td>' . ( $name === $first ? '<a href="' . esc_url( $detail ) . '">' . $value . '</a>' : $value ) . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped above.
+				if ( $name === $first ) {
+					$value = '<a href="' . esc_url( $detail ) . '">' . $value . '</a>';
+				} elseif ( 'group_reference' === $name && '' !== $row[ $name ] ) {
+					$value = self::group_link( (string) $row[ $name ] );
+				}
+				echo '<td>' . $value . '</td>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped above.
+			}
+			$session_id = (int) $row['session_id'];
+			if ( ! isset( $seat_labels[ $session_id ] ) ) {
+				$seat_labels[ $session_id ] = null !== $row['session_date'] ? Labels::seats( Seat_Allocation::availability( $session_id ) ) : '';
 			}
 			echo '<td>' . esc_html( Labels::enrolment_session( $row ) ) . '</td>';
+			echo '<td>' . esc_html( $seat_labels[ $session_id ] ) . '</td>';
 			echo '<td>' . esc_html( Labels::status( $row['status'] ) ) . '</td>';
+			echo '<td>' . esc_html( Labels::invoiced( $row ) ) . '</td>';
 			echo '<td>' . esc_html( Labels::created( $row ) ) . '</td>';
 			echo '</tr>';
 		}
@@ -178,9 +201,18 @@ class Enrolments_Admin {
 		}
 	}
 
+	/** Link to the list filtered to every enrolment of one cycle submission. */
+	private static function group_link( string $reference ): string {
+		$url = add_query_arg( array( 'page' => self::SLUG, 'group' => $reference ), admin_url( 'admin.php' ) );
+		return '<a href="' . esc_url( $url ) . '">' . esc_html( $reference ) . '</a>';
+	}
+
 	private static function render_filter_form( array $filters ): void {
-		echo '<form method="get" style="margin:12px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+		echo '<form method="get" class="gzw-filter-form">';
 		echo '<input type="hidden" name="page" value="' . esc_attr( self::SLUG ) . '" />';
+		if ( '' !== $filters['group'] ) {
+			echo '<input type="hidden" name="group" value="' . esc_attr( $filters['group'] ) . '" />';
+		}
 
 		echo '<select name="course" aria-label="' . esc_attr__( 'Cursus', 'gezonder-in-werk-booking' ) . '"><option value="">' . esc_html__( 'Alle cursussen', 'gezonder-in-werk-booking' ) . '</option>';
 		foreach ( Catalog_Repository::courses() as $course ) {
@@ -217,10 +249,20 @@ class Enrolments_Admin {
 		echo '<tr><th>' . esc_html__( 'Sessie', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::enrolment_session( $row ) ) . '</td></tr>';
 		echo '<tr><th>' . esc_html__( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::price( (int) $row['price_cents'] ) ) . '</td></tr>';
 		echo '<tr><th>' . esc_html__( 'Ingeschreven op', 'gezonder-in-werk-booking' ) . '</th><td>' . esc_html( Labels::created( $row ) ) . '</td></tr>';
+		if ( '' !== $row['group_reference'] ) {
+			echo '<tr><th>' . esc_html( Labels::group_total_heading() ) . '</th><td>' . esc_html( Labels::price( Enrolment_Repository::group_total( $row['group_reference'] ) ) ) . '</td></tr>';
+		}
 		foreach ( Enrolment_Fields::groups() as $group => $heading ) {
+			if ( Enrolment_Fields::GROUP_CYCLE === $group && '' === $row['group_reference'] ) {
+				continue; // Single enrolments have no cycle details.
+			}
 			echo '<tr><th colspan="2">' . esc_html( $heading ) . '</th></tr>';
 			foreach ( Enrolment_Fields::in_group( $group ) as $name => $field ) {
-				echo '<tr><th>' . esc_html( $field['label'] ) . '</th><td>' . esc_html( Enrolment_Fields::display_value( $field, (string) $row[ $name ] ) ) . '</td></tr>';
+				$value = esc_html( Enrolment_Fields::display_value( $field, (string) $row[ $name ] ) );
+				if ( 'group_reference' === $name ) {
+					$value = self::group_link( (string) $row[ $name ] );
+				}
+				echo '<tr><th>' . esc_html( $field['label'] ) . '</th><td>' . $value . '</td></tr>'; // phpcs:ignore WordPress.Security.EscapeOutput -- escaped above.
 			}
 		}
 		echo '</tbody></table>';

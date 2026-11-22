@@ -25,3 +25,47 @@ class Gzw_Submission {
 		return rest_do_request( $request );
 	}
 }
+
+/** Test mail adapter: records instead of sending. Install with Enrolment_Intake::use_mail_adapter(). */
+class Gzw_Mail_Recorder implements \GezonderInWerk\Booking\Mail_Adapter {
+
+	/** @var array<int,array{to:string,subject:string,body:string}> */
+	public array $sent = array();
+
+	public function send( string $to, string $subject, string $body ): void {
+		$this->sent[] = compact( 'to', 'subject', 'body' );
+	}
+}
+
+/**
+ * Test lock adapter: named locks held in memory, re-entrant like a MySQL lock on one connection.
+ * hold_elsewhere() makes a lock look held by another connection, so acquiring it times out at once.
+ * Install with Session_Lock::use_adapter().
+ */
+class Gzw_Memory_Lock implements \GezonderInWerk\Booking\Lock_Adapter {
+
+	/** @var array<string,int> Hold counts per lock name. */
+	private array $held = array();
+	/** @var array<string,true> */
+	private array $elsewhere = array();
+
+	public function hold_elsewhere( string $name ): void {
+		$this->elsewhere[ $name ] = true;
+	}
+
+	public function acquire( string $name, int $timeout ): bool {
+		if ( isset( $this->elsewhere[ $name ] ) ) {
+			return false;
+		}
+		$this->held[ $name ] = ( $this->held[ $name ] ?? 0 ) + 1;
+		return true;
+	}
+
+	public function release( string $name ): void {
+		$this->held[ $name ] = max( 0, ( $this->held[ $name ] ?? 0 ) - 1 );
+	}
+
+	public function is_held( string $name ): bool {
+		return ! empty( $this->held[ $name ] );
+	}
+}

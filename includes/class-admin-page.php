@@ -86,16 +86,18 @@ class Admin_Page {
 		$end       = self::post( 'end_time' );
 		$location  = self::post( 'location' );
 		$capacity  = self::post( 'capacity' ); // Empty = unlimited.
+		$format    = self::post( 'format' ) ?: Expectation_Texts::FORMAT_WEBINAR;
 
 		$valid = $course_id && Catalog_Repository::get_course( $course_id )
 			&& preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) && checkdate( (int) substr( $date, 5, 2 ), (int) substr( $date, 8, 2 ), (int) substr( $date, 0, 4 ) )
 			&& preg_match( '/^([01]\d|2[0-3]):[0-5]\d$/', $start ) && preg_match( '/^([01]\d|2[0-3]):[0-5]\d$/', $end )
 			&& $start < $end && '' !== $location
+			&& array_key_exists( $format, Expectation_Texts::formats() )
 			&& ( '' === $capacity || ( ctype_digit( $capacity ) && (int) $capacity > 0 && strlen( $capacity ) < 8 ) );
 		if ( ! $valid ) {
 			self::back( $course_id, 'invalid_session' );
 		}
-		$saved = Catalog_Repository::save_session(
+		$saved = Catalog_Repository::save_session_checked(
 			array(
 				'course_id'    => $course_id,
 				'session_date' => $date,
@@ -103,11 +105,12 @@ class Admin_Page {
 				'end_time'     => $end,
 				'location'     => $location,
 				'is_open'      => '1' === self::post( 'is_open' ),
+				'format'       => $format,
 				'capacity'     => '' === $capacity ? null : (int) $capacity,
 			),
 			$id
 		);
-		self::back( $course_id, $saved ? 'saved' : 'error' );
+		self::back( $course_id, $saved['id'] ? 'saved' : ( $saved['error'] ?? 'error' ) );
 	}
 
 	public static function handle_delete_session(): void {
@@ -122,7 +125,9 @@ class Admin_Page {
 			'deleted'         => array( 'success', __( 'Verwijderd.', 'gezonder-in-werk-booking' ) ),
 			'in_use'          => array( 'error', __( 'Kan niet worden verwijderd: er zijn nog actieve (niet-geannuleerde) inschrijvingen of een datum hoort bij een cyclus. Sluit de datum in plaats daarvan.', 'gezonder-in-werk-booking' ) ),
 			'invalid_course'  => array( 'error', __( 'Vul een titel en een geldige prijs (bijv. 125,00) in.', 'gezonder-in-werk-booking' ) ),
-			'invalid_session' => array( 'error', __( 'Vul een geldige datum, begin- en eindtijd (begin vóór eind), locatie en capaciteit (leeg of een positief getal) in.', 'gezonder-in-werk-booking' ) ),
+			'invalid_session' => array( 'error', __( 'Vul een geldige datum, begin- en eindtijd (begin vóór eind), locatie en capaciteit (leeg of een positief getal) en soort in.', 'gezonder-in-werk-booking' ) ),
+			'capacity_below_confirmed' => array( 'error', __( 'De capaciteit kan niet lager zijn dan het aantal bevestigde inschrijvingen. Annuleer of verplaats eerst inschrijvingen.', 'gezonder-in-werk-booking' ) ),
+			'busy'            => array( 'error', __( 'Deze datum wordt op dit moment bijgewerkt door een inschrijving. Er is niets opgeslagen; probeer het over een paar seconden opnieuw.', 'gezonder-in-werk-booking' ) ),
 			'error'           => array( 'error', __( 'Opslaan mislukt.', 'gezonder-in-werk-booking' ) ),
 		);
 		$key = isset( $_GET['gzw_notice'] ) ? sanitize_key( wp_unslash( $_GET['gzw_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification
@@ -203,7 +208,7 @@ class Admin_Page {
 	}
 
 	private static function session_fields( int $course_id, array $s ): void {
-		$s += array( 'id' => 0, 'session_date' => '', 'start_time' => '', 'end_time' => '', 'location' => '', 'is_open' => 1, 'capacity' => null );
+		$s += array( 'id' => 0, 'session_date' => '', 'start_time' => '', 'end_time' => '', 'location' => '', 'is_open' => 1, 'capacity' => null, 'format' => Expectation_Texts::FORMAT_WEBINAR );
 		$p  = 'gzw-s' . $s['id'] . '-';
 		?>
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:8px">
@@ -215,8 +220,17 @@ class Admin_Page {
 			<label><?php esc_html_e( 'Van', 'gezonder-in-werk-booking' ); ?><br /><input type="time" name="start_time" required value="<?php echo esc_attr( substr( (string) $s['start_time'], 0, 5 ) ); ?>" /></label>
 			<label><?php esc_html_e( 'Tot', 'gezonder-in-werk-booking' ); ?><br /><input type="time" name="end_time" required value="<?php echo esc_attr( substr( (string) $s['end_time'], 0, 5 ) ); ?>" /></label>
 			<label><?php esc_html_e( 'Locatie', 'gezonder-in-werk-booking' ); ?><br /><input name="location" required value="<?php echo esc_attr( $s['location'] ); ?>" /></label>
+			<label><?php esc_html_e( 'Soort', 'gezonder-in-werk-booking' ); ?><br />
+				<select name="format">
+					<?php foreach ( Expectation_Texts::formats() as $value => $label ) : ?>
+						<option value="<?php echo esc_attr( $value ); ?>" <?php selected( Expectation_Texts::normalise_format( $s['format'] ), $value ); ?>><?php echo esc_html( $label ); ?></option>
+					<?php endforeach; ?>
+				</select></label>
 			<label><?php esc_html_e( 'Capaciteit (leeg = onbeperkt)', 'gezonder-in-werk-booking' ); ?><br /><input type="number" name="capacity" min="1" step="1" value="<?php echo esc_attr( (string) $s['capacity'] ); ?>" /></label>
 			<label><input type="checkbox" name="is_open" value="1" <?php checked( (int) $s['is_open'], 1 ); ?> /> <?php esc_html_e( 'Open voor inschrijving', 'gezonder-in-werk-booking' ); ?></label>
+			<?php if ( $s['id'] ) : ?>
+				<span class="gzw-seats"><?php echo esc_html( Labels::seats( Seat_Allocation::availability( (int) $s['id'] ) ) ); ?></span>
+			<?php endif; ?>
 			<button type="submit" class="button button-primary"><?php echo $s['id'] ? esc_html__( 'Opslaan', 'gezonder-in-werk-booking' ) : esc_html__( 'Datum toevoegen', 'gezonder-in-werk-booking' ); ?></button>
 		</form>
 		<?php

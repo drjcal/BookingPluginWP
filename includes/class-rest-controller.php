@@ -36,29 +36,31 @@ class Rest_Controller {
 			);
 		}
 
-		$result = Enrolment_Validator::validate( $request->get_params() );
+		$outcome = Enrolment_Intake::submit( $request->get_params() );
 
-		if ( $result['errors'] ) {
+		if ( Intake_Outcome::REJECTED === $outcome->kind ) {
 			return new \WP_REST_Response(
 				array(
 					'code'    => 'validation_failed',
 					'message' => __( 'Controleer de gemarkeerde velden.', 'gezonder-in-werk-booking' ),
-					'errors'  => $result['errors'],
-					'values'  => $result['values'],
+					'errors'  => $outcome->errors,
+					'values'  => $outcome->values,
 				),
 				422
 			);
 		}
-
-		$cycle  = $result['cycle'];
-		$stored = $cycle ? Enrolment_Repository::enrol_cycle( $result['values'], $cycle ) : Enrolment_Repository::enrol( $result['values'] );
-		if ( 'closed' === $stored['error'] ) {
-			return self::rejected( 'session_id', $cycle ? __( 'Inschrijven voor (een deel van) deze cyclus is gesloten.', 'gezonder-in-werk-booking' ) : __( 'Inschrijven voor deze datum is gesloten.', 'gezonder-in-werk-booking' ), $result['values'] );
+		if ( Intake_Outcome::BUSY === $outcome->kind ) {
+			$response = new \WP_REST_Response(
+				array(
+					'code'    => 'busy',
+					'message' => Enrolment_Messages::busy(),
+				),
+				503
+			);
+			$response->header( 'Retry-After', '5' );
+			return $response;
 		}
-		if ( 'duplicate' === $stored['error'] ) {
-			return self::rejected( 'email', $cycle ? __( 'Dit e-mailadres is al ingeschreven voor een of meer webinars van deze cyclus.', 'gezonder-in-werk-booking' ) : __( 'Dit e-mailadres is al ingeschreven voor deze datum.', 'gezonder-in-werk-booking' ), $result['values'] );
-		}
-		if ( $stored['error'] ) {
+		if ( Intake_Outcome::STORAGE_FAILED === $outcome->kind ) {
 			return new \WP_Error(
 				'storage_failed',
 				__( 'Je inschrijving kon niet worden opgeslagen. Probeer het later opnieuw.', 'gezonder-in-werk-booking' ),
@@ -66,41 +68,16 @@ class Rest_Controller {
 			);
 		}
 
-		$waitlisted = Installer::STATUS_WAITLISTED === $stored['status'];
-		$message    = Enrolment_Messages::outcome( (bool) $cycle, $waitlisted );
-		Enrolment_Mailer::send_for_submission( $result['values'], $cycle ? $stored['ids'] : array( $stored['id'] ), $cycle );
-
-		if ( $cycle ) {
-			return new \WP_REST_Response(
-				array(
-					'id'              => $stored['id'],
-					'ids'             => $stored['ids'],
-					'group_reference' => $stored['group_reference'],
-					'status'          => $stored['status'],
-					'message'         => $message,
-				),
-				201
-			);
+		$body = array(
+			'id'     => $outcome->ids()[0],
+			'status' => $outcome->status(),
+		);
+		if ( $outcome->is_cycle ) {
+			$body['ids']             = $outcome->ids();
+			$body['group_reference'] = $outcome->group_reference;
 		}
-		return new \WP_REST_Response(
-			array(
-				'id'      => $stored['id'],
-				'status'  => $stored['status'],
-				'message' => $message,
-			),
-			201
-		);
-	}
-
-	private static function rejected( string $field, string $message, array $values ): \WP_REST_Response {
-		return new \WP_REST_Response(
-			array(
-				'code'    => 'validation_failed',
-				'message' => __( 'Controleer de gemarkeerde velden.', 'gezonder-in-werk-booking' ),
-				'errors'  => array( $field => $message ),
-				'values'  => $values,
-			),
-			422
-		);
+		$body['message']      = $outcome->message;
+		$body['expectations'] = $outcome->expectations;
+		return new \WP_REST_Response( $body, 201 );
 	}
 }

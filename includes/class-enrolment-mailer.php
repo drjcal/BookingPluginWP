@@ -4,18 +4,19 @@ namespace GezonderInWerk\Booking;
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Plain-text e-mails after a submission, sent with wp_mail() so site SMTP plugins apply:
+ * Plain-text e-mails after a submission, sent through a Mail_Adapter:
  * one confirmation to the enrolee and one notification to the admin address, also for cycles.
  */
 class Enrolment_Mailer {
 
 	/**
-	 * @param array<string,string> $values  Validated submission values.
-	 * @param int[]                $ids     Created enrolment ids (several for a cycle).
-	 * @param ?array               $cycle   The cycle when the submission was for a whole cycle.
+	 * @param Mail_Adapter         $mail       Where the mails go.
+	 * @param array<string,string> $values     Validated submission values.
+	 * @param array[]              $enrolments The created enrolments (several for a cycle), with session and course.
+	 * @param ?array               $cycle      The cycle when the submission was for a whole cycle.
 	 */
-	public static function send_for_submission( array $values, array $ids, ?array $cycle ): void {
-		$rows = array_values( array_filter( array_map( array( Enrolment_Repository::class, 'get' ), $ids ) ) );
+	public static function send_for_submission( Mail_Adapter $mail, array $values, array $enrolments, ?array $cycle ): void {
+		$rows = array_values( $enrolments );
 		if ( ! $rows ) {
 			return;
 		}
@@ -28,18 +29,38 @@ class Enrolment_Mailer {
 			: __( 'Je inschrijving is bevestigd', 'gezonder-in-werk-booking' );
 		$body    = sprintf( __( 'Beste %s,', 'gezonder-in-werk-booking' ), $values['first_name'] ) . "\n\n"
 			. Enrolment_Messages::outcome( null !== $cycle, $waitlisted ) . "\n\n"
+			. self::expectations_block( Expectation_Texts::for_enrolments( $rows, null !== $cycle ) )
 			. $summary . "\n"
 			. __( 'Met vriendelijke groet,', 'gezonder-in-werk-booking' ) . "\n" . get_bloginfo( 'name' ) . "\n";
-		wp_mail( $values['email'], $subject, $body );
+		$mail->send( $values['email'], $subject, $body );
 
 		$admin_body = sprintf( __( 'Nieuwe inschrijving van %1$s (%2$s), %3$s.', 'gezonder-in-werk-booking' ), $name, $values['email'], $values['employer'] ) . "\n\n"
 			. $summary . "\n"
 			. sprintf( __( 'Bekijk de inschrijving: %s', 'gezonder-in-werk-booking' ), add_query_arg( array( 'page' => Enrolments_Admin::SLUG, 'enrolment' => $rows[0]['id'] ), admin_url( 'admin.php' ) ) ) . "\n";
-		wp_mail(
+		$mail->send(
 			Settings_Page::notification_email(),
 			sprintf( __( 'Nieuwe inschrijving: %s', 'gezonder-in-werk-booking' ), $name ),
 			$admin_body
 		);
+	}
+
+	/** @param string[] $lines */
+	private static function expectations_block( array $lines ): string {
+		return $lines ? implode( "\n", $lines ) . "\n\n" : '';
+	}
+
+	/** Sent when staff promote a waitlisted enrolment: only now does the enrolee get the promise. */
+	public static function send_promotion( Mail_Adapter $mail, array $enrolment ): void {
+		if ( empty( $enrolment['email'] ) ) {
+			return;
+		}
+		$lines = Expectation_Texts::for_enrolments( array( $enrolment ), false );
+		$body  = sprintf( __( 'Beste %s,', 'gezonder-in-werk-booking' ), $enrolment['first_name'] ) . "\n\n"
+			. __( 'Goed nieuws: er is een plek vrijgekomen en je inschrijving is nu bevestigd.', 'gezonder-in-werk-booking' ) . "\n\n"
+			. self::summary( array( $enrolment ), null ) . "\n"
+			. self::expectations_block( $lines )
+			. __( 'Met vriendelijke groet,', 'gezonder-in-werk-booking' ) . "\n" . get_bloginfo( 'name' ) . "\n";
+		$mail->send( $enrolment['email'], __( 'Je inschrijving is bevestigd', 'gezonder-in-werk-booking' ), $body );
 	}
 
 	/** One line per webinar/session with its own status, plus the price (bundle total for a cycle). */
