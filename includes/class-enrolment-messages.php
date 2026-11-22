@@ -33,6 +33,10 @@ class Enrolment_Messages {
 			: __( 'Dit e-mailadres is al ingeschreven voor deze datum.', 'gezonder-in-werk-booking' );
 	}
 
+	public static function busy(): string {
+		return __( 'Er zijn op dit moment veel inschrijvingen tegelijk. Er is niets opgeslagen: probeer het over een paar seconden opnieuw.', 'gezonder-in-werk-booking' );
+	}
+
 	public static function no_session(): string {
 		return __( 'Kies een datum waarvoor je je wilt inschrijven.', 'gezonder-in-werk-booking' );
 	}

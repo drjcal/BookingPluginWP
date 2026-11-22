@@ -95,7 +95,7 @@ class Admin_Page {
 		if ( ! $valid ) {
 			self::back( $course_id, 'invalid_session' );
 		}
-		$saved = Catalog_Repository::save_session(
+		$saved = Catalog_Repository::save_session_checked(
 			array(
 				'course_id'    => $course_id,
 				'session_date' => $date,
@@ -107,7 +107,7 @@ class Admin_Page {
 			),
 			$id
 		);
-		self::back( $course_id, $saved ? 'saved' : 'error' );
+		self::back( $course_id, $saved['id'] ? 'saved' : ( $saved['error'] ?? 'error' ) );
 	}
 
 	public static function handle_delete_session(): void {
@@ -123,6 +123,8 @@ class Admin_Page {
 			'in_use'          => array( 'error', __( 'Kan niet worden verwijderd: er zijn nog actieve (niet-geannuleerde) inschrijvingen of een datum hoort bij een cyclus. Sluit de datum in plaats daarvan.', 'gezonder-in-werk-booking' ) ),
 			'invalid_course'  => array( 'error', __( 'Vul een titel en een geldige prijs (bijv. 125,00) in.', 'gezonder-in-werk-booking' ) ),
 			'invalid_session' => array( 'error', __( 'Vul een geldige datum, begin- en eindtijd (begin vóór eind), locatie en capaciteit (leeg of een positief getal) in.', 'gezonder-in-werk-booking' ) ),
+			'capacity_below_confirmed' => array( 'error', __( 'De capaciteit kan niet lager zijn dan het aantal bevestigde inschrijvingen. Annuleer of verplaats eerst inschrijvingen.', 'gezonder-in-werk-booking' ) ),
+			'busy'            => array( 'error', __( 'Deze datum wordt op dit moment bijgewerkt door een inschrijving. Er is niets opgeslagen; probeer het over een paar seconden opnieuw.', 'gezonder-in-werk-booking' ) ),
 			'error'           => array( 'error', __( 'Opslaan mislukt.', 'gezonder-in-werk-booking' ) ),
 		);
 		$key = isset( $_GET['gzw_notice'] ) ? sanitize_key( wp_unslash( $_GET['gzw_notice'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification

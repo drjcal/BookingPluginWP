@@ -49,6 +49,17 @@ class Rest_Controller {
 				422
 			);
 		}
+		if ( Intake_Outcome::BUSY === $outcome->kind ) {
+			$response = new \WP_REST_Response(
+				array(
+					'code'    => 'busy',
+					'message' => Enrolment_Messages::busy(),
+				),
+				503
+			);
+			$response->header( 'Retry-After', '5' );
+			return $response;
+		}
 		if ( Intake_Outcome::STORAGE_FAILED === $outcome->kind ) {
 			return new \WP_Error(
 				'storage_failed',

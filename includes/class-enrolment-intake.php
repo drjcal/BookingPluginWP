@@ -11,6 +11,8 @@ class Intake_Outcome {
 	const CREATED        = 'created';
 	const REJECTED       = 'rejected';
 	const STORAGE_FAILED = 'storage_failed';
+	/** The seat lock was not obtained in time: nothing was stored, trying again is safe. */
+	const BUSY           = 'busy';
 
 	/** @var string */
 	public $kind;
@@ -111,14 +113,17 @@ class Enrolment_Intake {
 			return self::rejected( $errors, $values );
 		}
 
-		// The checks above give early field errors. The repository re-checks closed and duplicate
+		// The checks above give early field errors. Seat allocation re-checks closed and duplicate
 		// under the session lock, which is the authoritative guard against concurrent submissions.
-		$stored = $is_cycle ? Enrolment_Repository::enrol_cycle( $values, $cycle ) : Enrolment_Repository::enrol( $values );
+		$stored = $is_cycle ? Seat_Allocation::enrol_cycle( $values, $cycle ) : Seat_Allocation::enrol( $values );
 		if ( 'closed' === $stored['error'] ) {
 			return self::rejected( array( 'session_id' => Enrolment_Messages::closed( $is_cycle ) ), $values );
 		}
 		if ( 'duplicate' === $stored['error'] ) {
 			return self::rejected( array( 'email' => Enrolment_Messages::duplicate( $is_cycle ) ), $values );
+		}
+		if ( 'busy' === $stored['error'] ) {
+			return new Intake_Outcome( Intake_Outcome::BUSY );
 		}
 		if ( $stored['error'] ) {
 			return new Intake_Outcome( Intake_Outcome::STORAGE_FAILED );
