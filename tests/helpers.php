@@ -25,3 +25,14 @@ class Gzw_Submission {
 		return rest_do_request( $request );
 	}
 }
+
+/** Test mail adapter: records instead of sending. Install with Enrolment_Intake::use_mail_adapter(). */
+class Gzw_Mail_Recorder implements \GezonderInWerk\Booking\Mail_Adapter {
+
+	/** @var array<int,array{to:string,subject:string,body:string}> */
+	public array $sent = array();
+
+	public function send( string $to, string $subject, string $body ): void {
+		$this->sent[] = compact( 'to', 'subject', 'body' );
+	}
+}
