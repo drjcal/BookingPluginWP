@@ -1,7 +1,27 @@
 # Gezonder in Werk Booking
 
-WordPress plugin for course enrolment (see issue #1). Shortcode: `[gezonder_inschrijfformulier]`.
-Endpoint: `POST /wp-json/gezonder-in-werk/v1/enrolments`.
+WordPress plugin for Gezonder in Werk B.V. that lets healthcare professionals enrol for training courses (nascholingen and webinars) and gives staff one place to manage those enrolments.
+
+## What it does
+
+- **Catalogue.** Staff create courses, dated sessions (with optional capacity) and cycles (a bundle of sessions at one price) in the WordPress admin.
+- **Enrolment form.** The shortcode `[gezonder_inschrijfformulier]` shows a form for a session or a whole cycle. It collects participant, BIG number and invoice details plus consent, and validates everything on the server.
+- **Seats and waitlist.** A free seat gives a confirmed enrolment; a full session gives a waitlisted one that staff promote by hand. Capacity is never exceeded, and a person cannot enrol twice for the same session.
+- **E-mail.** The participant gets a confirmation (or waitlist notice); staff get a notification with a link to the enrolment.
+- **Admin.** List, filter and search enrolments, change status, mark as invoiced, add internal notes, export to CSV and delete.
+- **Privacy.** Consent is stored, spam is blocked (nonce, honeypot, rate limit), and personal data is anonymised automatically after a configurable retention period.
+
+The interface and e-mails are in Dutch. Requires PHP 8.0+ and WordPress.
+
+## Documentation
+
+- [How it works](docs/HOW-IT-WORKS.md): the product from the point of view of staff and visitors.
+- [Architecture](docs/ARCHITECTURE.md): classes, request flow, data model and design decisions.
+- [Glossary](docs/GLOSSARY.md): the shared domain language, with terms to avoid and open ambiguities.
+
+## API
+
+`POST /wp-json/gezonder-in-werk/v1/enrolments` creates an enrolment. It returns `201` with the enrolment id, status and a message, or `422 validation_failed` with per-field `errors` and the submitted `values`.
 
 ## Tests
 
