@@ -20,7 +20,7 @@ All code lives in the namespace `GezonderInWerk\Booking`, in `includes/class-*.p
 2. `Rest_Controller::create` runs `Spam_Guard::check` (nonce, honeypot, per-IP rate limit). Rejected submissions are never stored.
 3. `Enrolment_Validator::validate` checks every field defined in `Enrolment_Fields` and resolves the target: a session id, or a cycle (see `cycle_id_from`). On failure the controller answers `422 validation_failed` with `errors` and the submitted `values`, so the form can restore what the user typed.
 4. `Enrolment_Repository::enrol` (single session) or `enrol_cycle` (all sessions of a cycle, all or nothing) stores the result. Outcomes: `closed`, `duplicate` (both mapped to a 422 on the relevant field) or a storage error (500).
-5. Success returns `201` with `id`, `status` (`confirmed` or `waitlisted`) and a message; cycle submissions also return `ids` and `group_reference`. A confirmation e-mail goes out through `Enrolment_Mailer`. The admin notification carries a SnelStart booking CSV from `Snelstart_Export` (via `Mail_Adapter::send`'s `$attachments`) once all four ledger settings are filled in.
+5. Success returns `201` with `id`, `status` (`confirmed` or `waitlisted`) and a message; cycle submissions also return `ids` and `group_reference`. A confirmation e-mail goes out through `Enrolment_Mailer`. The admin notification carries an experimental (beta) SnelStart booking CSV from `Snelstart_Export` (via `Mail_Adapter::send`'s `$attachments`) once all four ledger settings are filled in.
 
 ## Data model
 

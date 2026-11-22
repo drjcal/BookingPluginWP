@@ -131,7 +131,7 @@ class Settings_Page {
 	/** @return array<string,string> Option name => label of the SnelStart numbers. */
 	private static function snelstart_fields(): array {
 		return array(
-			self::OPTION_SNELSTART_JOURNAL => __( 'SnelStart: dagboek verkoop', 'gezonder-in-werk-booking' ),
+			self::OPTION_SNELSTART_JOURNAL => __( 'SnelStart (experimenteel): dagboek verkoop', 'gezonder-in-werk-booking' ),
 			self::OPTION_SNELSTART_DEBTORS => __( 'SnelStart: grootboek debiteuren', 'gezonder-in-werk-booking' ),
 			self::OPTION_SNELSTART_REVENUE => __( 'SnelStart: grootboek omzet', 'gezonder-in-werk-booking' ),
 			self::OPTION_SNELSTART_VAT     => __( 'SnelStart: grootboek BTW hoog', 'gezonder-in-werk-booking' ),
@@ -281,7 +281,7 @@ class Settings_Page {
 							<td>
 								<input type="text" inputmode="numeric" id="<?php echo esc_attr( $option ); ?>" class="small-text" name="<?php echo esc_attr( $option ); ?>" value="<?php echo esc_attr( (string) get_option( $option, '' ) ); ?>" />
 								<?php if ( self::OPTION_SNELSTART_VAT === $option ) : ?>
-									<p class="description"><?php esc_html_e( 'Met alle vier de nummers ingevuld krijgt de melding per e-mail een SnelStart-boekingsbestand (CSV) als bijlage. Klantcode en factuurnummer vult u zelf in voor het importeren. Leeg laten betekent geen bijlage.', 'gezonder-in-werk-booking' ); ?></p>
+									<p class="description"><?php esc_html_e( 'Experimentele functie (bèta): de uitvoer is nog niet getoetst in een echte SnelStart-import. Met alle vier de nummers ingevuld krijgt de melding per e-mail een SnelStart-boekingsbestand (CSV) als bijlage. Klantcode en factuurnummer vult u zelf in voor het importeren. Leeg laten betekent geen bijlage.', 'gezonder-in-werk-booking' ); ?></p>
 								<?php endif; ?>
 							</td>
 						</tr>
