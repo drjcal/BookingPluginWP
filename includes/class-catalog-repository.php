@@ -298,31 +298,4 @@ class Catalog_Repository {
 		);
 		return (bool) $deleted;
 	}
-
-	public static function format_price( int $cents ): string {
-		return '€ ' . number_format( $cents / 100, 2, ',', '.' );
-	}
-
-	public static function format_cycle( array $cycle ): string {
-		return sprintf(
-			/* translators: 1: cycle title, 2: number of webinars, 3: bundle price */
-			_n( '%1$s – hele cyclus (%2$d webinar) – %3$s excl. BTW', '%1$s – hele cyclus (%2$d webinars) – %3$s excl. BTW', count( $cycle['sessions'] ), 'gezonder-in-werk-booking' ),
-			$cycle['title'],
-			count( $cycle['sessions'] ),
-			self::format_price( (int) $cycle['price_cents'] )
-		);
-	}
-
-	public static function format_session( array $session ): string {
-		return sprintf(
-			/* translators: 1: course title, 2: date, 3: start time, 4: end time, 5: location, 6: price */
-			__( '%1$s – %2$s, %3$s–%4$s, %5$s – %6$s excl. BTW', 'gezonder-in-werk-booking' ),
-			$session['title'],
-			mysql2date( 'd-m-Y', $session['session_date'] ),
-			substr( $session['start_time'], 0, 5 ),
-			substr( $session['end_time'], 0, 5 ),
-			$session['location'],
-			self::format_price( (int) $session['price_cents'] )
-		);
-	}
 }

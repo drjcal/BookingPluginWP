@@ -39,13 +39,13 @@ class Form_Shortcode {
 						<?php if ( $cycles ) : ?>
 							<optgroup label="<?php esc_attr_e( 'Hele cyclus', 'gezonder-in-werk-booking' ); ?>">
 								<?php foreach ( $cycles as $cycle ) : ?>
-									<option value="<?php echo esc_attr( 'cycle-' . $cycle['id'] ); ?>"><?php echo esc_html( Catalog_Repository::format_cycle( $cycle ) ); ?></option>
+									<option value="<?php echo esc_attr( 'cycle-' . $cycle['id'] ); ?>"><?php echo esc_html( Labels::cycle( $cycle ) ); ?></option>
 								<?php endforeach; ?>
 							</optgroup>
 							<optgroup label="<?php esc_attr_e( 'Losse webinars', 'gezonder-in-werk-booking' ); ?>">
 						<?php endif; ?>
 						<?php foreach ( Catalog_Repository::open_sessions() as $session ) : ?>
-							<option value="<?php echo esc_attr( $session['id'] ); ?>"><?php echo esc_html( Catalog_Repository::format_session( $session ) ); ?></option>
+							<option value="<?php echo esc_attr( $session['id'] ); ?>"><?php echo esc_html( Labels::session( $session ) ); ?></option>
 						<?php endforeach; ?>
 						<?php if ( $cycles ) : ?>
 							</optgroup>

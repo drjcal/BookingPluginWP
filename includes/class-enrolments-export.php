@@ -64,9 +64,9 @@ class Enrolments_Export {
 	 */
 	private static function columns(): array {
 		$columns = array(
-			array( __( 'Ingeschreven op', 'gezonder-in-werk-booking' ), array( Enrolments_Admin::class, 'created_label' ) ),
+			array( __( 'Ingeschreven op', 'gezonder-in-werk-booking' ), array( Labels::class, 'created' ) ),
 			array( __( 'Cursus', 'gezonder-in-werk-booking' ), static fn( array $row ) => (string) $row['course_title'] ),
-			array( __( 'Sessie', 'gezonder-in-werk-booking' ), array( Enrolments_Admin::class, 'session_label' ) ),
+			array( __( 'Sessie', 'gezonder-in-werk-booking' ), array( Labels::class, 'enrolment_session' ) ),
 		);
 		foreach ( Enrolment_Fields::all() as $name => $field ) {
 			$columns[] = array( $field['label'], static fn( array $row ) => Enrolment_Fields::display_value( $field, (string) $row[ $name ] ) );
@@ -74,8 +74,8 @@ class Enrolments_Export {
 		return array_merge(
 			$columns,
 			array(
-				array( __( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ), static fn( array $row ) => Catalog_Repository::format_price( (int) $row['price_cents'] ) ),
-				array( __( 'Status', 'gezonder-in-werk-booking' ), static fn( array $row ) => Enrolments_Admin::status_label( $row['status'] ) ),
+				array( __( 'Prijs excl. BTW', 'gezonder-in-werk-booking' ), static fn( array $row ) => Labels::price( (int) $row['price_cents'] ) ),
+				array( __( 'Status', 'gezonder-in-werk-booking' ), static fn( array $row ) => Labels::status( $row['status'] ) ),
 				array( __( 'Gefactureerd', 'gezonder-in-werk-booking' ), static fn( array $row ) => (int) $row['invoiced'] ? __( 'Ja', 'gezonder-in-werk-booking' ) : __( 'Nee', 'gezonder-in-werk-booking' ) ),
 				array( __( 'Interne notitie', 'gezonder-in-werk-booking' ), static fn( array $row ) => (string) $row['internal_note'] ),
 			)
