@@ -98,8 +98,8 @@ class Enrolment_Intake {
 		} else {
 			$values['price_cents'] = (string) $price;
 			if ( ! isset( $errors['email'] ) ) {
-				foreach ( $sessions as $s ) {
-					if ( Enrolment_Repository::has_active( (int) $s['id'], $values['email'] ) ) {
+				foreach ( $sessions as $target_session ) {
+					if ( Enrolment_Repository::has_active( (int) $target_session['id'], $values['email'] ) ) {
 						$errors['email'] = Enrolment_Messages::duplicate( $is_cycle );
 						break;
 					}
@@ -111,6 +111,8 @@ class Enrolment_Intake {
 			return self::rejected( $errors, $values );
 		}
 
+		// The checks above give early field errors. The repository re-checks closed and duplicate
+		// under the session lock, which is the authoritative guard against concurrent submissions.
 		$stored = $is_cycle ? Enrolment_Repository::enrol_cycle( $values, $cycle ) : Enrolment_Repository::enrol( $values );
 		if ( 'closed' === $stored['error'] ) {
 			return self::rejected( array( 'session_id' => Enrolment_Messages::closed( $is_cycle ) ), $values );
